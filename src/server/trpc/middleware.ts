@@ -1,4 +1,5 @@
 import "server-only";
 
-// Auth middleware will be implemented in Story 1.2
-// This file is a placeholder for the auth middleware pattern
+// Auth middleware (authedProcedure) is defined in init.ts.
+// Re-export for convenience. Additional middleware (rate limiting, etc.) can be added here.
+export { authedProcedure } from "@/server/trpc/init";

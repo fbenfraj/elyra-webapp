@@ -1,6 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PUBLIC_ROUTES = ["/", "/pricing", "/login", "/signup", "/callback"];
+
+function isPublicRoute(pathname: string): boolean {
+  if (PUBLIC_ROUTES.includes(pathname)) return true;
+  if (pathname.startsWith("/api/")) return true;
+  return false;
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -30,7 +38,33 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refresh session if expired
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  // Redirect unauthenticated users away from protected routes
+  if (!user && !isPublicRoute(pathname)) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
+  }
+
+  // Redirect authenticated users away from auth pages to dashboard
+  if (user && (pathname === "/login" || pathname === "/signup")) {
+    const dashboardUrl = request.nextUrl.clone();
+    dashboardUrl.pathname = "/dashboard";
+    const redirectResponse = NextResponse.redirect(dashboardUrl);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectResponse;
+  }
 
   return supabaseResponse;
 }
