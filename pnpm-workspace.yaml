@@ -1,3 +1,6 @@
 ignoredBuiltDependencies:
+  - esbuild
+  - msw
+  - protobufjs
   - sharp
   - unrs-resolver
