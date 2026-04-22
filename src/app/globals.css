@@ -1,0 +1,150 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * Elyra Design Tokens
+ * Dark-only theme. No light mode. The UI is the frame -- generated images ARE the color.
+ * Zinc scale throughout. No brand accent color.
+ */
+
+/* ============================================================
+   ELYRA DESIGN TOKENS
+   ============================================================ */
+:root {
+  /* --- Background scale (dark-first) --- */
+  --background: #09090b;
+  --background-elevated: #18181b;
+  --background-overlay: #27272a;
+
+  /* --- Foreground scale --- */
+  --foreground: #fafafa;
+  --foreground-muted: #a1a1aa;
+  --foreground-subtle: #71717a;
+
+  /* --- Accent (neutral, no brand color) --- */
+  --accent: #e4e4e7;
+  --accent-hover: #f4f4f5;
+
+  /* --- Semantic --- */
+  --destructive: #ef4444;
+  --success: #22c55e;
+  --border: #27272a;
+  --ring: #3f3f46;
+
+  /* --- Typography scale --- */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  /* --- Spacing scale (non-linear, base-4) --- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* --- Border radius --- */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+  --radius: 0.5rem;
+
+  /* --- Motion --- */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-loading: 1500ms;
+
+  /* --- Easing --- */
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* --- Content widths --- */
+  --content-narrow: 640px;
+  --content-medium: 960px;
+  --content-wide: 1280px;
+
+  /* ============================================================
+     SHADCN/UI COMPATIBILITY MAPPING
+     Map Elyra tokens to shadcn's expected CSS variables.
+     ============================================================ */
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent-foreground: #09090b;
+  --input: #27272a;
+}
+
+/* ============================================================
+   TAILWIND v4 THEME EXTENSION
+   Expose Elyra tokens as Tailwind utilities via @theme.
+   ============================================================ */
+@theme inline {
+  /* Colors */
+  --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-background-overlay: var(--background-overlay);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* Font */
+  --font-sans: var(--font-inter);
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
