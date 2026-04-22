@@ -3,8 +3,11 @@ import "server-only";
 import { z } from "zod/v4";
 import { createTRPCRouter, authedProcedure } from "@/server/trpc/init";
 import { runInterpretation } from "@/server/services/interpretation";
+import { getDirectionsForSession } from "@/server/services/direction-generation";
+import { generationCreateDirections } from "@/trigger/generation-create-directions";
 import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
+import { visualSpecs } from "@/server/db/schema/visual-specs";
 import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 
@@ -77,5 +80,81 @@ export const generationRouter = createTRPCRouter({
         status: session.status,
         stepLabel: stepLabelMap[session.status] ?? "Processing...",
       };
+    }),
+
+  startDirections: authedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify session belongs to user and is in generating_directions state
+      const [session] = await db
+        .select({ id: sessions.id, status: sessions.status })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      if (session.status !== "generating_directions") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Session is not ready for direction generation",
+        });
+      }
+
+      // Find the visual spec for this session
+      const [spec] = await db
+        .select({ id: visualSpecs.id })
+        .from(visualSpecs)
+        .where(eq(visualSpecs.sessionId, input.sessionId));
+
+      if (!spec) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Visual specification not found for this session",
+        });
+      }
+
+      // Queue the task via Trigger.dev — returns immediately, UI polls getStatus
+      await generationCreateDirections.trigger({
+        sessionId: session.id,
+        userId: ctx.user.id,
+        input: { visualSpecId: spec.id },
+      });
+
+      return { queued: true };
+    }),
+
+  getDirections: authedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify session belongs to user
+      const [session] = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      const directions = await getDirectionsForSession(input.sessionId);
+      return { directions };
     }),
 });

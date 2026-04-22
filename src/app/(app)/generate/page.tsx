@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useTRPC } from "@/lib/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { BriefInput } from "@/features/generation/components/BriefInput";
 import { BriefDisplay } from "@/features/generation/components/BriefDisplay";
 import { FollowUpQuestions } from "@/features/generation/components/FollowUpQuestions";
 import { StatusPoller } from "@/features/generation/components/StatusPoller";
+import { CreativeProcessLoader } from "@/features/generation/components/CreativeProcessLoader";
+import type { Direction } from "@/lib/schemas/direction";
 
 type PageState =
   | { phase: "input" }
@@ -16,6 +18,17 @@ type PageState =
       sessionId: string;
       briefText: string;
       questions: string[];
+    }
+  | {
+      phase: "generating_directions";
+      sessionId: string;
+      briefText: string;
+    }
+  | {
+      phase: "directions_ready";
+      sessionId: string;
+      briefText: string;
+      directions: Direction[];
     }
   | { phase: "error"; briefText: string; message: string };
 
@@ -73,7 +86,13 @@ export default function GeneratePage() {
           return;
         }
 
-        // Spec returned successfully — poller will pick up the status change
+        // Spec returned successfully — transition to direction generation
+        setState({
+          phase: "generating_directions",
+          sessionId: state.sessionId,
+          briefText: state.briefText,
+        });
+        startDirections.mutate({ sessionId: state.sessionId });
       },
       onError: () => {
         if (state.phase === "processing") {
@@ -82,6 +101,24 @@ export default function GeneratePage() {
             briefText: state.briefText,
             message:
               "Something went wrong interpreting your brief. Give it another try.",
+          });
+        }
+      },
+    })
+  );
+
+  const startDirections = useMutation(
+    trpc.generation.startDirections.mutationOptions({
+      onSuccess: () => {
+        // Task queued via Trigger.dev — UI polls getStatus for completion
+      },
+      onError: () => {
+        if (state.phase === "generating_directions") {
+          setState({
+            phase: "error",
+            briefText: state.briefText,
+            message:
+              "Something went wrong generating your directions. Give it another try.",
           });
         }
       },
@@ -117,6 +154,40 @@ export default function GeneratePage() {
     );
   }
 
+  if (state.phase === "generating_directions") {
+    return (
+      <DirectionPollingPhase
+        sessionId={state.sessionId}
+        briefText={state.briefText}
+        onComplete={(directions) =>
+          setState({
+            phase: "directions_ready",
+            sessionId: state.sessionId,
+            briefText: state.briefText,
+            directions,
+          })
+        }
+        onError={(message) =>
+          setState({ phase: "error", briefText: state.briefText, message })
+        }
+      />
+    );
+  }
+
+  if (state.phase === "directions_ready") {
+    return (
+      <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+        <BriefDisplay text={state.briefText} />
+        <p className="mt-8 text-lg text-[var(--foreground)]">
+          {state.directions.length} directions ready
+        </p>
+        <p className="mt-2 text-sm text-[var(--foreground-muted)]">
+          Direction reveal coming in Story 2.4
+        </p>
+      </div>
+    );
+  }
+
   if (state.phase === "error") {
     return (
       <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
@@ -142,4 +213,51 @@ export default function GeneratePage() {
       />
     </div>
   );
+}
+
+function DirectionPollingPhase({
+  sessionId,
+  briefText,
+  onComplete,
+  onError,
+}: {
+  sessionId: string;
+  briefText: string;
+  onComplete: (directions: Direction[]) => void;
+  onError: (message: string) => void;
+}) {
+  const trpc = useTRPC();
+
+  // Poll session status every 3s
+  const { data: statusData } = useQuery(
+    trpc.generation.getStatus.queryOptions(
+      { sessionId },
+      {
+        refetchInterval: (query) => {
+          const status = query.state.data?.status;
+          if (status === "complete" || status === "failed") return false;
+          return 3000;
+        },
+      }
+    )
+  );
+
+  // When status is complete, fetch directions
+  const { data: directionsData } = useQuery(
+    trpc.generation.getDirections.queryOptions(
+      { sessionId },
+      { enabled: statusData?.status === "complete" }
+    )
+  );
+
+  // Transition when directions arrive
+  if (directionsData?.directions) {
+    onComplete(directionsData.directions);
+  }
+
+  if (statusData?.status === "failed") {
+    onError("Something went wrong generating your directions. Give it another try.");
+  }
+
+  return <CreativeProcessLoader briefText={briefText} />;
 }
