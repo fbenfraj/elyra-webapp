@@ -18,6 +18,13 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        // Elyra three-tier button hierarchy
+        primary:
+          "h-10 bg-accent text-background font-medium rounded-[var(--radius-sm)] hover:bg-accent-hover active:scale-[0.98] transition-all duration-[var(--duration-fast)]",
+        "ghost-secondary":
+          "h-10 bg-transparent text-accent border border-border font-medium rounded-[var(--radius-sm)] hover:bg-background-overlay active:scale-[0.98] transition-all duration-[var(--duration-fast)]",
+        "text-link":
+          "text-foreground-muted font-normal underline-offset-4 hover:underline hover:text-foreground p-0 h-auto",
       },
       size: {
         default:
