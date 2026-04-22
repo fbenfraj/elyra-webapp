@@ -2,7 +2,7 @@ import "server-only";
 
 import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 export async function createSession(userId: string, briefText: string) {
   const [session] = await db
@@ -11,6 +11,13 @@ export async function createSession(userId: string, briefText: string) {
     .returning({ id: sessions.id });
 
   return session;
+}
+
+export async function updateSessionStatus(sessionId: string, status: string) {
+  await db
+    .update(sessions)
+    .set({ status, updatedAt: sql`now()` })
+    .where(eq(sessions.id, sessionId));
 }
 
 export async function listByUserId(userId: string) {
