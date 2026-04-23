@@ -304,6 +304,11 @@ describe("Task 1: Structured log field completeness", () => {
     const mockFailSession = vi.fn();
     const mockTrigger = vi.fn().mockResolvedValue(undefined);
 
+    afterEach(() => {
+      // Clean up cross-task mock to avoid polluting evaluate-batch tests
+      vi.doUnmock("@/trigger/generation-evaluate-batch");
+    });
+
     beforeEach(() => {
       vi.resetModules();
       vi.clearAllMocks();
@@ -398,10 +403,13 @@ describe("Task 1: Structured log field completeness", () => {
 
   describe("generation-evaluate-batch", () => {
     const mockEvaluateBatch = vi.fn();
-    const mockGetBatchCount = vi.fn();
     const mockUpdateSessionStatus = vi.fn();
     const mockFailSession = vi.fn();
-    const mockTrigger = vi.fn().mockResolvedValue(undefined);
+
+    afterEach(() => {
+      // Clean up cross-task mock to avoid polluting refine-prompt tests
+      vi.doUnmock("@/trigger/generation-refine-prompt");
+    });
 
     beforeEach(() => {
       vi.resetModules();
@@ -410,39 +418,21 @@ describe("Task 1: Structured log field completeness", () => {
       vi.doMock("@trigger.dev/sdk/v3", () => ({
         task: (config: { id: string; run: unknown }) => config,
       }));
-
       vi.doMock("@/server/services/evaluation", () => ({
         evaluateBatch: mockEvaluateBatch,
-        getBatchCount: mockGetBatchCount,
+        getBatchCount: vi.fn(),
       }));
-
       vi.doMock("@/server/services/session", () => ({
         updateSessionStatus: mockUpdateSessionStatus,
         failSession: mockFailSession,
       }));
-
-      vi.doMock("@/config/evaluation", () => ({
-        MAX_EVAL_RETRIES: 3,
-      }));
-
+      vi.doMock("@/config/evaluation", () => ({ MAX_EVAL_RETRIES: 3 }));
       vi.doMock("@/trigger/generation-refine-prompt", () => ({
-        generationRefinePrompt: { trigger: mockTrigger },
+        generationRefinePrompt: { trigger: vi.fn() },
       }));
-
       vi.doMock("@/config/providers", () => ({
         MODEL_ROUTING: {
-          interpretation: {
-            primary: { provider: "openai", model: "gpt-4.1" },
-            fallback: { provider: "openai", model: "gpt-4o" },
-          },
-          imageGeneration: {
-            preview: { provider: "fal", model: "fal-ai/flux/schnell" },
-            final: { provider: "fal", model: "fal-ai/flux-pro/v2" },
-          },
-          evaluation: {
-            primary: { provider: "openai", model: "gpt-4o" },
-            fallback: { provider: "anthropic", model: "claude-sonnet-4-6" },
-          },
+          evaluation: { primary: { provider: "openai", model: "gpt-4o" } },
         },
       }));
     });
@@ -457,10 +447,8 @@ describe("Task 1: Structured log field completeness", () => {
 
       const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
-      const { generationEvaluateBatch } = await import(
-        "./generation-evaluate-batch"
-      );
-      await (generationEvaluateBatch as { run: Function }).run({
+      const mod = await import("./generation-evaluate-batch");
+      await (mod.generationEvaluateBatch as unknown as { run: Function }).run({
         sessionId: "sess-4",
         userId: "user-4",
         input: {},
@@ -483,10 +471,8 @@ describe("Task 1: Structured log field completeness", () => {
 
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const { generationEvaluateBatch } = await import(
-        "./generation-evaluate-batch"
-      );
-      await (generationEvaluateBatch as { run: Function }).run({
+      const mod = await import("./generation-evaluate-batch");
+      await (mod.generationEvaluateBatch as unknown as { run: Function }).run({
         sessionId: "sess-4",
         userId: "user-4",
         input: {},
@@ -507,7 +493,6 @@ describe("Task 1: Structured log field completeness", () => {
     const mockGetEvaluationFeedback = vi.fn();
     const mockGetBatchCount = vi.fn();
     const mockFailSession = vi.fn();
-    const mockTrigger = vi.fn().mockResolvedValue(undefined);
 
     beforeEach(() => {
       vi.resetModules();
@@ -516,38 +501,22 @@ describe("Task 1: Structured log field completeness", () => {
       vi.doMock("@trigger.dev/sdk/v3", () => ({
         task: (config: { id: string; run: unknown }) => config,
       }));
-
       vi.doMock("@/server/services/image-generation", () => ({
         refinePrompt: mockRefinePrompt,
       }));
-
       vi.doMock("@/server/services/evaluation", () => ({
         getEvaluationFeedback: mockGetEvaluationFeedback,
         getBatchCount: mockGetBatchCount,
       }));
-
       vi.doMock("@/server/services/session", () => ({
         failSession: mockFailSession,
       }));
-
       vi.doMock("@/trigger/generation-create-images", () => ({
-        generationCreateImages: { trigger: mockTrigger },
+        generationCreateImages: { trigger: vi.fn() },
       }));
-
       vi.doMock("@/config/providers", () => ({
         MODEL_ROUTING: {
-          interpretation: {
-            primary: { provider: "openai", model: "gpt-4.1" },
-            fallback: { provider: "openai", model: "gpt-4o" },
-          },
-          imageGeneration: {
-            preview: { provider: "fal", model: "fal-ai/flux/schnell" },
-            final: { provider: "fal", model: "fal-ai/flux-pro/v2" },
-          },
-          evaluation: {
-            primary: { provider: "openai", model: "gpt-4o" },
-            fallback: { provider: "anthropic", model: "claude-sonnet-4-6" },
-          },
+          interpretation: { primary: { provider: "openai", model: "gpt-4.1" } },
         },
       }));
     });
@@ -563,10 +532,8 @@ describe("Task 1: Structured log field completeness", () => {
 
       const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
-      const { generationRefinePrompt } = await import(
-        "./generation-refine-prompt"
-      );
-      await (generationRefinePrompt as { run: Function }).run({
+      const mod = await import("./generation-refine-prompt");
+      await (mod.generationRefinePrompt as unknown as { run: Function }).run({
         sessionId: "sess-5",
         userId: "user-5",
         input: {},
@@ -588,10 +555,8 @@ describe("Task 1: Structured log field completeness", () => {
 
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const { generationRefinePrompt } = await import(
-        "./generation-refine-prompt"
-      );
-      await (generationRefinePrompt as { run: Function }).run({
+      const mod = await import("./generation-refine-prompt");
+      await (mod.generationRefinePrompt as unknown as { run: Function }).run({
         sessionId: "sess-5",
         userId: "user-5",
         input: {},
@@ -965,6 +930,15 @@ describe("Task 3: Provider health reflects circuit breaker state", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    // Clean up cross-module mocks to avoid polluting subsequent tests
+    vi.doUnmock("@/server/services/circuit-breaker");
+    vi.doUnmock("@/server/providers/fal");
+    vi.doUnmock("@/server/providers/openai");
+    vi.doUnmock("@/server/providers/anthropic");
+    vi.doUnmock("@/config/providers");
+  });
+
   it("getProviderStatuses reflects open circuit breaker state", async () => {
     vi.doMock("server-only", () => ({}));
 
@@ -1058,6 +1032,10 @@ describe("Task 3: Provider health reflects circuit breaker state", () => {
   });
 
   it("circuit breaker state transitions correctly: closed → open → half-open → closed", async () => {
+    // This test uses the real circuit-breaker module (not mocked) to verify
+    // actual state transitions. We re-mock only server-only and config.
+    vi.resetModules();
+    vi.clearAllMocks();
     vi.doMock("server-only", () => ({}));
     vi.doMock("@/config/providers", () => ({
       CIRCUIT_BREAKER_CONFIG: {
@@ -1069,32 +1047,31 @@ describe("Task 3: Provider health reflects circuit breaker state", () => {
 
     vi.useFakeTimers();
 
-    const { _resetAll, recordFailure, recordSuccess, canExecute, getState } =
-      await import("@/server/services/circuit-breaker");
+    const circuitBreaker = await import("@/server/services/circuit-breaker");
 
-    _resetAll();
+    circuitBreaker._resetAll();
 
     // Start closed
-    expect(getState("fal").state).toBe("closed");
-    expect(canExecute("fal")).toBe(true);
+    expect(circuitBreaker.getState("fal").state).toBe("closed");
+    expect(circuitBreaker.canExecute("fal")).toBe(true);
 
     // Accumulate failures
-    for (let i = 0; i < 5; i++) recordFailure("fal");
-    expect(getState("fal").state).toBe("open");
-    expect(canExecute("fal")).toBe(false);
+    for (let i = 0; i < 5; i++) circuitBreaker.recordFailure("fal");
+    expect(circuitBreaker.getState("fal").state).toBe("open");
+    expect(circuitBreaker.canExecute("fal")).toBe(false);
 
     // After cooldown → half-open
     vi.advanceTimersByTime(30_000);
-    expect(canExecute("fal")).toBe(true);
-    expect(getState("fal").state).toBe("half-open");
+    expect(circuitBreaker.canExecute("fal")).toBe(true);
+    expect(circuitBreaker.getState("fal").state).toBe("half-open");
 
     // Success → closed
-    recordSuccess("fal");
-    expect(getState("fal").state).toBe("closed");
-    expect(getState("fal").failureCount).toBe(0);
+    circuitBreaker.recordSuccess("fal");
+    expect(circuitBreaker.getState("fal").state).toBe("closed");
+    expect(circuitBreaker.getState("fal").failureCount).toBe(0);
 
     vi.useRealTimers();
-    _resetAll();
+    circuitBreaker._resetAll();
   });
 });
 
@@ -1195,12 +1172,23 @@ describe("Task 4: Event capture completeness", () => {
   });
 
   it("captureEvent includes all required fields in the DB insert", async () => {
+    vi.resetModules();
+
+    const localInsertValues = vi.fn().mockResolvedValue(undefined);
+    const localInsert = vi.fn().mockReturnValue({ values: localInsertValues });
+
+    vi.doMock("server-only", () => ({}));
+    vi.doMock("@/server/db", () => ({ db: { insert: localInsert } }));
+    vi.doMock("@/server/db/schema/session-events", () => ({
+      sessionEvents: { __table: "session_events" },
+    }));
+
     const { captureEvent } = await import("@/server/services/event-capture");
     const payload = { directionId: "dir-1", score: 0.85 };
 
     await captureEvent("user-42", "sess-42", "direction_selected", payload);
 
-    expect(insertValuesMock).toHaveBeenCalledWith({
+    expect(localInsertValues).toHaveBeenCalledWith({
       userId: "user-42",
       sessionId: "sess-42",
       action: "direction_selected",
@@ -1209,11 +1197,22 @@ describe("Task 4: Event capture completeness", () => {
   });
 
   it("captureEvent stores null payload when none provided", async () => {
+    vi.resetModules();
+
+    const localInsertValues = vi.fn().mockResolvedValue(undefined);
+    const localInsert = vi.fn().mockReturnValue({ values: localInsertValues });
+
+    vi.doMock("server-only", () => ({}));
+    vi.doMock("@/server/db", () => ({ db: { insert: localInsert } }));
+    vi.doMock("@/server/db/schema/session-events", () => ({
+      sessionEvents: { __table: "session_events" },
+    }));
+
     const { captureEvent } = await import("@/server/services/event-capture");
 
     await captureEvent("user-42", "sess-42", "recovery_started");
 
-    expect(insertValuesMock).toHaveBeenCalledWith({
+    expect(localInsertValues).toHaveBeenCalledWith({
       userId: "user-42",
       sessionId: "sess-42",
       action: "recovery_started",
@@ -1312,6 +1311,13 @@ describe("Task 5: Trigger.dev task tracing", () => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe("Task 6: Combined observability verification", () => {
+  afterEach(() => {
+    vi.doUnmock("@/server/services/circuit-breaker");
+    vi.doUnmock("@/config/providers");
+    vi.doUnmock("@/server/db");
+    vi.doUnmock("@/server/db/schema/provider-metrics");
+  });
+
   it("all pipeline stage logs have event=pipeline_stage_complete", async () => {
     vi.resetModules();
 
@@ -1388,13 +1394,14 @@ describe("Task 6: Combined observability verification", () => {
 
   it("provider metrics records are written on every provider call via executeWithFallback", async () => {
     vi.resetModules();
+    vi.clearAllMocks();
     vi.doMock("server-only", () => ({}));
 
-    const insertValuesMock = vi.fn().mockResolvedValue(undefined);
-    const insertMock = vi.fn().mockReturnValue({ values: insertValuesMock });
+    const localInsertValues = vi.fn().mockResolvedValue(undefined);
+    const localInsert = vi.fn().mockReturnValue({ values: localInsertValues });
 
     vi.doMock("@/server/db", () => ({
-      db: { insert: insertMock },
+      db: { insert: localInsert },
     }));
 
     vi.doMock("@/server/db/schema/provider-metrics", () => ({
@@ -1424,10 +1431,10 @@ describe("Task 6: Combined observability verification", () => {
     );
 
     // Allow microtasks to settle (fire-and-forget)
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 50));
 
-    expect(insertMock).toHaveBeenCalledOnce();
-    const insertCall = insertValuesMock.mock.calls[0]![0] as {
+    expect(localInsert).toHaveBeenCalledOnce();
+    const insertCall = localInsertValues.mock.calls[0]![0] as {
       provider: string;
       success: boolean;
       sessionId: string;
@@ -1439,13 +1446,14 @@ describe("Task 6: Combined observability verification", () => {
 
   it("provider metrics records failure when provider call throws", async () => {
     vi.resetModules();
+    vi.clearAllMocks();
     vi.doMock("server-only", () => ({}));
 
-    const insertValuesMock = vi.fn().mockResolvedValue(undefined);
-    const insertMock = vi.fn().mockReturnValue({ values: insertValuesMock });
+    const localInsertValues = vi.fn().mockResolvedValue(undefined);
+    const localInsert = vi.fn().mockReturnValue({ values: localInsertValues });
 
     vi.doMock("@/server/db", () => ({
-      db: { insert: insertMock },
+      db: { insert: localInsert },
     }));
 
     vi.doMock("@/server/db/schema/provider-metrics", () => ({
@@ -1476,10 +1484,10 @@ describe("Task 6: Combined observability verification", () => {
     ).rejects.toBeInstanceOf(AllProvidersFailedError);
 
     // Allow microtasks to settle (fire-and-forget)
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 50));
 
-    expect(insertMock).toHaveBeenCalledOnce();
-    const insertCall = insertValuesMock.mock.calls[0]![0] as {
+    expect(localInsert).toHaveBeenCalledOnce();
+    const insertCall = localInsertValues.mock.calls[0]![0] as {
       provider: string;
       success: boolean;
     };
