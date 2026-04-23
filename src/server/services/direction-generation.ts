@@ -9,7 +9,7 @@ import { generationJobs } from "@/server/db/schema/generation-jobs";
 import { eq, desc } from "drizzle-orm";
 import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
-import { updateSessionStatus } from "@/server/services/session";
+import { updateSessionStatus, failSession } from "@/server/services/session";
 
 /** Stored in DB — uses stable R2 keys, not expiring signed URLs. */
 type StoredDirection = {
@@ -180,8 +180,8 @@ export async function generateDirections(
       status: "complete",
     });
 
-    // Step 5: Update session status to complete
-    await updateSessionStatus(sessionId, "complete");
+    // Step 5: Update session status to selecting (directions ready for selection)
+    await updateSessionStatus(sessionId, "selecting");
 
     // Mint fresh signed URLs for the response
     const directions = await resolveSignedUrls(storedDirections);
@@ -195,7 +195,7 @@ export async function generateDirections(
       },
     };
   } catch {
-    await updateSessionStatus(sessionId, "failed").catch(() => {});
+    await failSession(sessionId, "generating_directions").catch(() => {});
 
     return {
       ok: false,

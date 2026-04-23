@@ -13,11 +13,15 @@ type FalWebhookPayload = {
   error?: string;
 };
 
+const FAL_PROVIDER = "fal";
+const FAL_MODEL = "fal-ai/flux-pro/v2";
+
 export const webhookProcessFal = task({
   id: "webhook-process-fal",
   run: async (
     payload: FalWebhookPayload
   ): Promise<{ ok: boolean; skipped?: boolean; reason?: string }> => {
+    const taskStart = Date.now();
     const { skipped } = await withIdempotency(
       `fal-webhook:${payload.requestId}`,
       "webhook-process-fal",
@@ -25,9 +29,16 @@ export const webhookProcessFal = task({
         if (payload.status === "ERROR") {
           console.error(
             JSON.stringify({
-              event: "fal_webhook_error",
-              requestId: payload.requestId,
+              event: "pipeline_stage_complete",
               sessionId: payload.sessionId,
+              userId: payload.userId,
+              provider: FAL_PROVIDER,
+              model: FAL_MODEL,
+              stage: "webhook_process_fal",
+              finalOutcome: "failed",
+              costCents: 0,
+              durationMs: Date.now() - taskStart,
+              requestId: payload.requestId,
               error: payload.error,
             })
           );
@@ -38,11 +49,19 @@ export const webhookProcessFal = task({
 
         const images = payload.payload?.images;
         if (!images || images.length === 0) {
-          console.warn(
+          console.error(
             JSON.stringify({
-              event: "fal_webhook_no_images",
-              requestId: payload.requestId,
+              event: "pipeline_stage_complete",
               sessionId: payload.sessionId,
+              userId: payload.userId,
+              provider: FAL_PROVIDER,
+              model: FAL_MODEL,
+              stage: "webhook_process_fal",
+              finalOutcome: "failed",
+              costCents: 0,
+              durationMs: Date.now() - taskStart,
+              requestId: payload.requestId,
+              reason: "no_images_returned",
             })
           );
 
@@ -52,9 +71,16 @@ export const webhookProcessFal = task({
 
         console.info(
           JSON.stringify({
-            event: "fal_webhook_processed",
-            requestId: payload.requestId,
+            event: "pipeline_stage_complete",
             sessionId: payload.sessionId,
+            userId: payload.userId,
+            provider: FAL_PROVIDER,
+            model: FAL_MODEL,
+            stage: "webhook_process_fal",
+            finalOutcome: "success",
+            costCents: 0,
+            durationMs: Date.now() - taskStart,
+            requestId: payload.requestId,
             imageCount: images.length,
           })
         );

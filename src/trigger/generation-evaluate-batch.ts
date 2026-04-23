@@ -4,6 +4,7 @@ import { evaluateBatch, getBatchCount } from "@/server/services/evaluation";
 import { updateSessionStatus, failSession } from "@/server/services/session";
 import { MAX_EVAL_RETRIES } from "@/config/evaluation";
 import { generationRefinePrompt } from "@/trigger/generation-refine-prompt";
+import { MODEL_ROUTING } from "@/config/providers";
 
 export const generationEvaluateBatch = task({
   id: "generation-evaluate-batch",
@@ -16,6 +17,7 @@ export const generationEvaluateBatch = task({
       totalCostCents: number;
     }>
   > => {
+    const taskStart = Date.now();
     try {
       const result = await evaluateBatch(payload.sessionId, payload.userId);
 
@@ -23,9 +25,11 @@ export const generationEvaluateBatch = task({
         event: "pipeline_stage_complete",
         sessionId: payload.sessionId,
         userId: payload.userId,
+        provider: MODEL_ROUTING.evaluation.primary.provider,
+        model: MODEL_ROUTING.evaluation.primary.model,
         stage: "evaluate_batch",
-        outcome: result.ok ? "success" : "failure",
-        costCents: result.meta.costCents,
+        finalOutcome: result.ok ? "success" : "failure",
+        costCents: result.meta.costCents ?? 0,
         durationMs: result.meta.durationMs,
       }));
 
@@ -57,6 +61,18 @@ export const generationEvaluateBatch = task({
 
       return result;
     } catch {
+      const durationMs = Date.now() - taskStart;
+      console.error(JSON.stringify({
+        event: "pipeline_stage_complete",
+        sessionId: payload.sessionId,
+        userId: payload.userId,
+        provider: MODEL_ROUTING.evaluation.primary.provider,
+        model: MODEL_ROUTING.evaluation.primary.model,
+        stage: "evaluate_batch",
+        finalOutcome: "failed",
+        costCents: 0,
+        durationMs,
+      }));
       await failSession(payload.sessionId, "evaluating").catch(() => {});
       return {
         ok: false,
@@ -64,7 +80,7 @@ export const generationEvaluateBatch = task({
           code: "TASK_FAILED",
           message: "Something went wrong evaluating your images. Give it another try.",
         },
-        meta: { costCents: 0, durationMs: 0 },
+        meta: { costCents: 0, durationMs },
       };
     }
   },

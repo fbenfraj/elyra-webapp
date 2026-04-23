@@ -3,7 +3,7 @@ import "server-only";
 import type { TaskResult } from "@/types/task";
 import type { VisualSpec } from "@/lib/schemas/visual-spec";
 import { moderateBrief, interpretBrief } from "@/server/providers/openai";
-import { updateSessionStatus } from "@/server/services/session";
+import { updateSessionStatus, failSession } from "@/server/services/session";
 import { executeWithFallback } from "@/server/services/provider-executor";
 import { FALLBACK_CHAINS } from "@/config/providers";
 import { storeVisualSpec } from "@/server/services/visual-spec-store";
@@ -92,7 +92,7 @@ export async function runInterpretation(
     };
   } catch {
     // Update session to failed state
-    await updateSessionStatus(sessionId, "failed").catch(() => {
+    await failSession(sessionId, "interpreting").catch(() => {
       // Best-effort status update on failure
     });
 

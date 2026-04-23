@@ -52,7 +52,7 @@ describe("provider-health", () => {
   describe("getProviderStatuses", () => {
     it("returns health for all registered providers", async () => {
       const healthData = {
-        status: "up" as const,
+        status: "healthy" as const,
         lastChecked: new Date(),
         latencyMs: 100,
         errorCount: 0,
@@ -70,7 +70,7 @@ describe("provider-health", () => {
 
     it("includes circuit breaker state for each provider", async () => {
       const healthData = {
-        status: "up" as const,
+        status: "healthy" as const,
         lastChecked: new Date(),
         latencyMs: 50,
         errorCount: 0,
@@ -98,7 +98,7 @@ describe("provider-health", () => {
 
     it("defaults circuit breaker to closed when no state exists", async () => {
       const healthData = {
-        status: "up" as const,
+        status: "healthy" as const,
         lastChecked: new Date(),
         latencyMs: 50,
         errorCount: 0,
@@ -117,7 +117,7 @@ describe("provider-health", () => {
 
     it("filters out providers whose getHealth rejects", async () => {
       const healthData = {
-        status: "up" as const,
+        status: "healthy" as const,
         lastChecked: new Date(),
         latencyMs: 50,
         errorCount: 0,

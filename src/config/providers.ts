@@ -72,7 +72,8 @@ export const RETRY_CONFIG: Record<string, { maxRetries: number; retryDelayMs: nu
 };
 
 export const CIRCUIT_BREAKER_CONFIG = {
+  /** Number of consecutive failures before opening the circuit. */
   failureThreshold: 5,
-  windowMs: 60_000,
+  /** Duration in ms the circuit stays open before transitioning to half-open. */
   cooldownMs: 30_000,
 } as const;

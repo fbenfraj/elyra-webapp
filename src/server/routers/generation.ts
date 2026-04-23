@@ -5,6 +5,7 @@ import { createTRPCRouter, authedProcedure } from "@/server/trpc/init";
 import { runInterpretation } from "@/server/services/interpretation";
 import { getDirectionsForSession } from "@/server/services/direction-generation";
 import { selectDirection, getSessionById, clearFailedStage, updateSessionStatus } from "@/server/services/session";
+import type { SessionStatus } from "@/server/services/session";
 import { refineSession, commitRefinement } from "@/server/services/refine-session";
 import { checkPackBoundary, incrementRegenCount } from "@/server/services/payment";
 import { checkUserBudget } from "@/server/services/budget";
@@ -571,7 +572,7 @@ export const generationRouter = createTRPCRouter({
       }
 
       // Map failedStage to the in-progress status to restore
-      const stageToStatusMap: Record<string, string> = {
+      const stageToStatusMap: Record<string, SessionStatus> = {
         interpreting: "interpreting",
         generating_directions: "generating_directions",
         generating_images: "generating_images",

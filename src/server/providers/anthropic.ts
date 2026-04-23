@@ -5,8 +5,9 @@ import { anthropic } from "@ai-sdk/anthropic";
 import type { EvaluationAdapter, DirectionContext } from "./image-generation";
 import type { ProviderHealth } from "@/types/provider";
 import { evaluationResultSchema } from "@/lib/schemas/evaluation";
+import { MODEL_ROUTING } from "@/config/providers";
 
-const ANTHROPIC_EVAL_MODEL = "claude-sonnet-4-6" as const;
+const ANTHROPIC_EVAL_MODEL = MODEL_ROUTING.evaluation.fallback.model;
 
 function buildEvaluationPrompt(
   direction: DirectionContext,

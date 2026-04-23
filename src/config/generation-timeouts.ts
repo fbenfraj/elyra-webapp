@@ -12,7 +12,11 @@ export const TIMEOUT_IMAGE_EXTENDED_MS = 180_000;
 /** Retry option appears for packaging */
 export const TIMEOUT_PACKAGE_EXTENDED_MS = 240_000;
 
-/** Polling interval for generation status (ms) */
+/**
+ * Polling interval for generation status (ms).
+ * Used by client-side polling logic. Exported as a named constant so it can be
+ * referenced in polling hooks without magic numbers.
+ */
 export const STATUS_POLL_INTERVAL_MS = 3_000;
 
 export type TimeoutLevel = "normal" | "delayed" | "extended";

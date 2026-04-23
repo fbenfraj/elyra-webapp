@@ -47,7 +47,7 @@ export const feedbackRouter = createTRPCRouter({
           "recovery_started",
           "suggestion_pill_selected",
         ]),
-        payload: z.record(z.unknown()).optional(),
+        payload: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

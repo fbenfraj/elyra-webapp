@@ -3,12 +3,14 @@ import type { TaskPayload, TaskResult } from "@/types/task";
 import type { InterpretationOutput } from "@/server/services/interpretation";
 import { runInterpretation } from "@/server/services/interpretation";
 import { failSession } from "@/server/services/session";
+import { MODEL_ROUTING } from "@/config/providers";
 
 export const generationInterpretBrief = task({
   id: "generation-interpret-brief",
   run: async (
     payload: TaskPayload<{ briefText: string }>
   ): Promise<TaskResult<InterpretationOutput>> => {
+    const taskStart = Date.now();
     try {
       const result = await runInterpretation(
         payload.sessionId,
@@ -20,14 +22,28 @@ export const generationInterpretBrief = task({
         event: "pipeline_stage_complete",
         sessionId: payload.sessionId,
         userId: payload.userId,
+        provider: MODEL_ROUTING.interpretation.primary.provider,
+        model: MODEL_ROUTING.interpretation.primary.model,
         stage: "interpret_brief",
-        outcome: result.ok ? "success" : "failure",
-        costCents: result.meta.costCents,
+        finalOutcome: result.ok ? "success" : "failure",
+        costCents: result.meta.costCents ?? 0,
         durationMs: result.meta.durationMs,
       }));
 
       return result;
     } catch {
+      const durationMs = Date.now() - taskStart;
+      console.error(JSON.stringify({
+        event: "pipeline_stage_complete",
+        sessionId: payload.sessionId,
+        userId: payload.userId,
+        provider: MODEL_ROUTING.interpretation.primary.provider,
+        model: MODEL_ROUTING.interpretation.primary.model,
+        stage: "interpret_brief",
+        finalOutcome: "failed",
+        costCents: 0,
+        durationMs,
+      }));
       await failSession(payload.sessionId, "interpreting").catch(() => {});
       return {
         ok: false,
@@ -35,7 +51,7 @@ export const generationInterpretBrief = task({
           code: "TASK_FAILED",
           message: "Something went wrong interpreting your brief. Give it another try.",
         },
-        meta: { costCents: 0, durationMs: 0 },
+        meta: { costCents: 0, durationMs },
       };
     }
   },

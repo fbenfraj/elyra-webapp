@@ -7,12 +7,14 @@ import {
 } from "@/server/services/evaluation";
 import { generationCreateImages } from "@/trigger/generation-create-images";
 import { failSession } from "@/server/services/session";
+import { MODEL_ROUTING } from "@/config/providers";
 
 export const generationRefinePrompt = task({
   id: "generation-refine-prompt",
   run: async (
     payload: TaskPayload<Record<string, never>>
   ): Promise<TaskResult<{ refinedPrompt: string }>> => {
+    const taskStart = Date.now();
     try {
       // Load evaluation feedback from the latest batch
       const feedback = await getEvaluationFeedback(payload.sessionId);
@@ -23,9 +25,11 @@ export const generationRefinePrompt = task({
         event: "pipeline_stage_complete",
         sessionId: payload.sessionId,
         userId: payload.userId,
+        provider: MODEL_ROUTING.interpretation.primary.provider,
+        model: MODEL_ROUTING.interpretation.primary.model,
         stage: "refine_prompt",
-        outcome: result.ok ? "success" : "failure",
-        costCents: result.meta.costCents,
+        finalOutcome: result.ok ? "success" : "failure",
+        costCents: result.meta.costCents ?? 0,
         durationMs: result.meta.durationMs,
       }));
 
@@ -46,14 +50,26 @@ export const generationRefinePrompt = task({
 
       return result;
     } catch {
-      await failSession(payload.sessionId, "generating_images").catch(() => {});
+      const durationMs = Date.now() - taskStart;
+      console.error(JSON.stringify({
+        event: "pipeline_stage_complete",
+        sessionId: payload.sessionId,
+        userId: payload.userId,
+        provider: MODEL_ROUTING.interpretation.primary.provider,
+        model: MODEL_ROUTING.interpretation.primary.model,
+        stage: "refine_prompt",
+        finalOutcome: "failed",
+        costCents: 0,
+        durationMs,
+      }));
+      await failSession(payload.sessionId, "prompt_refinement").catch(() => {});
       return {
         ok: false,
         error: {
           code: "TASK_FAILED",
           message: "Something went wrong refining your images. Give it another try.",
         },
-        meta: { costCents: 0, durationMs: 0 },
+        meta: { costCents: 0, durationMs },
       };
     }
   },
