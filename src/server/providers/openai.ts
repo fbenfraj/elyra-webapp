@@ -10,7 +10,7 @@ import {
   evaluationResultSchema,
   type EvaluationResult,
 } from "@/lib/schemas/evaluation";
-import { INTERPRETATION_MODEL } from "@/config/providers";
+import { INTERPRETATION_MODEL, MODERATION_CATEGORIES_BLOCKED } from "@/config/providers";
 import { RUBRIC_WEIGHTS } from "@/config/evaluation";
 import type { EvaluationAdapter, DirectionContext } from "./image-generation";
 
@@ -70,13 +70,6 @@ export async function interpretBrief(briefText: string): Promise<{
   };
 }
 
-// Only block categories specified in AC #3
-const BLOCKED_CATEGORY_PREFIXES = [
-  "violence",
-  "sexual",
-  "self-harm",
-  "illicit",
-] as const;
 
 export async function moderateBrief(
   briefText: string
@@ -110,7 +103,7 @@ export async function moderateBrief(
     .filter(
       ([category, flagged]) =>
         flagged &&
-        BLOCKED_CATEGORY_PREFIXES.some((prefix) =>
+        MODERATION_CATEGORIES_BLOCKED.some((prefix) =>
           category.startsWith(prefix)
         )
     )

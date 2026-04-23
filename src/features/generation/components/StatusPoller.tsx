@@ -2,6 +2,7 @@
 
 import { useTRPC } from "@/lib/trpc/client";
 import { useQuery } from "@tanstack/react-query";
+import { STATUS_POLL_INTERVAL_MS } from "@/config/generation-timeouts";
 
 export function StatusPoller({ sessionId }: { sessionId: string }) {
   const trpc = useTRPC();
@@ -13,7 +14,7 @@ export function StatusPoller({ sessionId }: { sessionId: string }) {
         refetchInterval: (query) => {
           const status = query.state.data?.status;
           if (status === "complete" || status === "failed") return false;
-          return 3000;
+          return STATUS_POLL_INTERVAL_MS;
         },
       }
     )

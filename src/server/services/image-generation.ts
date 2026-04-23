@@ -96,7 +96,7 @@ export async function generateImages(
       };
     }
 
-    if (session.status !== "paid" && session.status !== "generating_images") {
+    if (session.status !== "paid" && session.status !== "generating_images" && session.status !== "evaluating") {
       return {
         ok: false,
         error: {

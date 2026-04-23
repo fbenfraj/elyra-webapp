@@ -270,12 +270,12 @@ describe("CIRCUIT_BREAKER_CONFIG sanity", () => {
     expect(CIRCUIT_BREAKER_CONFIG.cooldownMs).toBeGreaterThan(0);
   });
 
-  it("cooldownMs is less than or equal to the shortest provider timeout", () => {
+  it("cooldownMs is strictly less than the shortest provider timeout", () => {
     const shortestTimeout = Math.min(
       ...Object.values(RETRY_CONFIG).map((c) => c.timeoutMs)
     );
-    // The cooldown should be shorter than a full provider timeout so we don't
-    // block for longer than a single request would take.
-    expect(CIRCUIT_BREAKER_CONFIG.cooldownMs).toBeLessThanOrEqual(shortestTimeout);
+    // The cooldown must be strictly shorter than the shortest provider timeout
+    // so a half-open probe has headroom before timing out.
+    expect(CIRCUIT_BREAKER_CONFIG.cooldownMs).toBeLessThan(shortestTimeout);
   });
 });

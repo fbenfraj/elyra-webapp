@@ -75,5 +75,5 @@ export const CIRCUIT_BREAKER_CONFIG = {
   /** Number of consecutive failures before opening the circuit. */
   failureThreshold: 5,
   /** Duration in ms the circuit stays open before transitioning to half-open. */
-  cooldownMs: 30_000,
+  cooldownMs: 20_000,
 } as const;
