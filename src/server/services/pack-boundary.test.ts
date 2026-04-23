@@ -17,7 +17,8 @@ const mockSetWhere = vi.fn();
 
 vi.mock("@/server/db", () => ({
   db: {
-    insert: () => ({ values: () => ({ returning: vi.fn() }) }),
+    insert: () => ({ values: () => ({ returning: vi.fn(), onConflictDoNothing: vi.fn().mockReturnValue({ returning: vi.fn() }) }) }),
+    delete: () => ({ where: vi.fn() }),
     select: () => ({
       from: () => ({
         where: (...args: unknown[]) => mockSelectWhere(...args),
@@ -53,6 +54,16 @@ vi.mock("@/config/pricing", () => ({
   PACK_PRICE_CENTS: 700,
   PACK_CURRENCY: "eur",
   PACK_REGEN_LIMIT: 3,
+}));
+
+// Mock idempotency helper — executes the handler callback immediately
+vi.mock("@/server/services/idempotency", () => ({
+  withIdempotency: vi.fn(
+    async (_eventKey: string, _handlerName: string, handler: () => Promise<void>) => {
+      await handler();
+      return { skipped: false };
+    }
+  ),
 }));
 
 describe("pack boundary", () => {
@@ -143,12 +154,6 @@ describe("pack boundary", () => {
 
   describe("webhook sets maxRegens from config", () => {
     it("sets maxRegens to PACK_REGEN_LIMIT when marking session as paid", async () => {
-      // First call: check existing payment → none
-      // Second call: check session status → not paid
-      mockSelectWhere
-        .mockResolvedValueOnce([]) // no existing payment
-        .mockResolvedValueOnce([{ status: "direction_selected" }]); // session not paid
-
       const { handleWebhookEvent } = await import("@/server/services/payment");
 
       const event = {

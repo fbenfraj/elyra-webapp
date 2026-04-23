@@ -29,7 +29,7 @@ vi.mock("@/server/db", () => ({
   db: {
     insert: (...args: unknown[]) => {
       mockInsert(...args);
-      return { values: (...vArgs: unknown[]) => { mockValues(...vArgs); return { returning: vi.fn() }; } };
+      return { values: (...vArgs: unknown[]) => { mockValues(...vArgs); return { returning: vi.fn(), onConflictDoNothing: vi.fn().mockReturnValue({ returning: vi.fn() }) }; } };
     },
     select: () => ({
       from: () => ({
@@ -60,6 +60,18 @@ vi.mock("@/config/pricing", () => ({
   PACK_PRICE_CENTS: 700,
   PACK_CURRENCY: "eur",
   PACK_REGEN_LIMIT: 3,
+}));
+
+// Mock idempotency helper — executes the handler callback immediately by default
+const mockWithIdempotency = vi.fn(
+  async (_eventKey: string, _handlerName: string, handler: () => Promise<void>) => {
+    await handler();
+    return { skipped: false };
+  }
+);
+
+vi.mock("@/server/services/idempotency", () => ({
+  withIdempotency: (...args: unknown[]) => mockWithIdempotency(...args as [string, string, () => Promise<void>]),
 }));
 
 describe("payment service", () => {
@@ -132,12 +144,6 @@ describe("payment service", () => {
 
   describe("handleWebhookEvent", () => {
     it("inserts payment record and updates session on checkout.session.completed", async () => {
-      // First call: check existing payment → none found
-      // Second call: check session status → not paid
-      mockSelectWhere
-        .mockResolvedValueOnce([]) // no existing payment
-        .mockResolvedValueOnce([{ status: "direction_selected" }]); // session not yet paid
-
       const { handleWebhookEvent } = await import("@/server/services/payment");
 
       const event = {
@@ -154,6 +160,11 @@ describe("payment service", () => {
 
       await handleWebhookEvent(event as unknown as Stripe.Event);
 
+      expect(mockWithIdempotency).toHaveBeenCalledWith(
+        "stripe:checkout:cs_test_123",
+        "handleStripeCheckout",
+        expect.any(Function)
+      );
       expect(mockInsert).toHaveBeenCalled();
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -173,11 +184,9 @@ describe("payment service", () => {
       );
     });
 
-    it("is idempotent - skips insert but still updates session if not paid", async () => {
-      // Payment exists, but session not yet paid (partial failure recovery)
-      mockSelectWhere
-        .mockResolvedValueOnce([{ id: "existing-payment-id" }]) // payment exists
-        .mockResolvedValueOnce([{ status: "direction_selected" }]); // session not yet paid
+    it("delegates idempotency to withIdempotency helper", async () => {
+      // When withIdempotency reports skipped, the handler is not called
+      mockWithIdempotency.mockResolvedValueOnce({ skipped: true });
 
       const { handleWebhookEvent } = await import("@/server/services/payment");
 
@@ -195,37 +204,12 @@ describe("payment service", () => {
 
       await handleWebhookEvent(event as unknown as Stripe.Event);
 
-      // Should NOT insert a new payment (idempotent)
-      expect(mockInsert).not.toHaveBeenCalled();
-      // SHOULD update session (partial failure recovery)
-      expect(mockUpdate).toHaveBeenCalled();
-      expect(mockSet).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "paid" })
+      expect(mockWithIdempotency).toHaveBeenCalledWith(
+        "stripe:checkout:cs_test_123",
+        "handleStripeCheckout",
+        expect.any(Function)
       );
-    });
-
-    it("skips session update if already paid", async () => {
-      // Payment exists AND session already paid — fully idempotent
-      mockSelectWhere
-        .mockResolvedValueOnce([{ id: "existing-payment-id" }]) // payment exists
-        .mockResolvedValueOnce([{ status: "paid" }]); // session already paid
-
-      const { handleWebhookEvent } = await import("@/server/services/payment");
-
-      const event = {
-        type: "checkout.session.completed" as const,
-        data: {
-          object: {
-            id: "cs_test_123",
-            metadata: { sessionId: "session-123", userId: "user-456" },
-            amount_total: 700,
-            currency: "eur",
-          },
-        },
-      };
-
-      await handleWebhookEvent(event as unknown as Stripe.Event);
-
+      // Handler was not called because withIdempotency skipped it
       expect(mockInsert).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -240,6 +224,7 @@ describe("payment service", () => {
 
       await handleWebhookEvent(event as unknown as Stripe.Event);
 
+      expect(mockWithIdempotency).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
       expect(mockUpdate).not.toHaveBeenCalled();
     });
@@ -261,6 +246,7 @@ describe("payment service", () => {
 
       await handleWebhookEvent(event as unknown as Stripe.Event);
 
+      expect(mockWithIdempotency).not.toHaveBeenCalled();
       expect(mockInsert).not.toHaveBeenCalled();
     });
   });

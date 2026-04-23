@@ -6,6 +6,7 @@ import { payments } from "@/server/db/schema/payments";
 import { sessions } from "@/server/db/schema/sessions";
 import { eq, sql } from "drizzle-orm";
 import { PACK_PRICE_CENTS, PACK_CURRENCY, PACK_REGEN_LIMIT } from "@/config/pricing";
+import { withIdempotency } from "@/server/services/idempotency";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -59,14 +60,10 @@ export async function handleWebhookEvent(event: Stripe.Event) {
     return;
   }
 
-  // Idempotent: check if payment already exists for this Stripe session
-  const [existing] = await db
-    .select({ id: payments.id })
-    .from(payments)
-    .where(eq(payments.stripeSessionId, checkoutSession.id));
-
-  if (!existing) {
-    // Insert payment record
+  await withIdempotency(`stripe:checkout:${checkoutSession.id}`, "handleStripeCheckout", async () => {
+    // ON CONFLICT handles retry after partial failure: if a prior attempt
+    // inserted the payment row but failed before completing, the retry
+    // skips the insert and proceeds to the session update.
     await db.insert(payments).values({
       sessionId,
       userId,
@@ -74,17 +71,8 @@ export async function handleWebhookEvent(event: Stripe.Event) {
       amountCents: checkoutSession.amount_total ?? PACK_PRICE_CENTS,
       currency: checkoutSession.currency ?? PACK_CURRENCY,
       status: "completed",
-    });
-  }
+    }).onConflictDoNothing({ target: payments.stripeSessionId });
 
-  // Always attempt session update — handles partial failure recovery
-  // where payment row was inserted but session update failed on a prior attempt
-  const [session] = await db
-    .select({ status: sessions.status })
-    .from(sessions)
-    .where(eq(sessions.id, sessionId));
-
-  if (session && session.status !== "paid") {
     await db
       .update(sessions)
       .set({
@@ -94,7 +82,7 @@ export async function handleWebhookEvent(event: Stripe.Event) {
         updatedAt: sql`now()`,
       })
       .where(eq(sessions.id, sessionId));
-  }
+  });
 }
 
 export async function getPaymentBySessionId(sessionId: string) {

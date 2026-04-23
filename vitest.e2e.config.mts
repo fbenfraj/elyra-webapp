@@ -5,11 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    setupFiles: ["./src/test-setup.ts"],
-    exclude: ["src/**/*.e2e.test.ts", "node_modules/**"],
-    environmentMatchGlobs: [
-      ["src/**/*.test.tsx", "happy-dom"],
-    ],
+    include: ["src/**/*.e2e.test.ts"],
   },
   resolve: {
     alias: {
