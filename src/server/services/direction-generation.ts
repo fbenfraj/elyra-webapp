@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 import { db } from "@/server/db";
 import { visualSpecs } from "@/server/db/schema/visual-specs";
 import { generationJobs } from "@/server/db/schema/generation-jobs";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { falAdapter } from "@/server/providers/fal";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
 import { updateSessionStatus } from "@/server/services/session";
@@ -231,14 +231,44 @@ async function resolveSignedUrls(
 
 export async function getDirectionsForSession(
   sessionId: string
-): Promise<Direction[] | null> {
-  const [job] = await db
-    .select({ directionData: generationJobs.directionData })
+): Promise<{ generationJobId: string; directions: Direction[] } | null> {
+  const jobs = await db
+    .select({ id: generationJobs.id, directionData: generationJobs.directionData, createdAt: generationJobs.createdAt })
     .from(generationJobs)
-    .where(eq(generationJobs.sessionId, sessionId));
+    .where(eq(generationJobs.sessionId, sessionId))
+    .orderBy(desc(generationJobs.createdAt));
 
-  if (!job) return null;
+  if (jobs.length === 0) return null;
 
-  const data = job.directionData as StoredDirectionData;
-  return resolveSignedUrls(data.directions);
+  // Return the latest round's directions with job ID
+  const data = jobs[0].directionData as StoredDirectionData;
+  return {
+    generationJobId: jobs[0].id,
+    directions: await resolveSignedUrls(data.directions),
+  };
+}
+
+export type DirectionRound = {
+  generationJobId: string;
+  directions: Direction[];
+};
+
+export async function getAllDirectionRoundsForSession(
+  sessionId: string
+): Promise<DirectionRound[]> {
+  const jobs = await db
+    .select({ id: generationJobs.id, directionData: generationJobs.directionData, createdAt: generationJobs.createdAt })
+    .from(generationJobs)
+    .where(eq(generationJobs.sessionId, sessionId))
+    .orderBy(generationJobs.createdAt); // oldest first
+
+  return Promise.all(
+    jobs.map(async (job) => {
+      const data = job.directionData as StoredDirectionData;
+      return {
+        generationJobId: job.id,
+        directions: await resolveSignedUrls(data.directions),
+      };
+    })
+  );
 }

@@ -29,6 +29,41 @@
       "when": 1776893494411,
       "tag": "0003_jazzy_jazinda",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776895148648,
+      "tag": "0004_brown_lord_tyger",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776896946688,
+      "tag": "0005_cute_senator_kelly",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776897756286,
+      "tag": "0006_slim_manta",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776984000000,
+      "tag": "0007_create_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1776984600000,
+      "tag": "0008_add_regen_columns",
+      "breakpoints": true
     }
   ]
 }

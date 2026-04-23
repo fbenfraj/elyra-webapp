@@ -4,6 +4,8 @@ import { z } from "zod/v4";
 import { createTRPCRouter, authedProcedure } from "@/server/trpc/init";
 import { runInterpretation } from "@/server/services/interpretation";
 import { getDirectionsForSession } from "@/server/services/direction-generation";
+import { selectDirection } from "@/server/services/session";
+import { refineSession, commitRefinement } from "@/server/services/refine-session";
 import { generationCreateDirections } from "@/trigger/generation-create-directions";
 import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
@@ -73,6 +75,8 @@ export const generationRouter = createTRPCRouter({
         evaluating: "Evaluating and curating...",
         packaging: "Assembling your release package...",
         complete: "Ready",
+        direction_selected: "Direction chosen",
+        paid: "Preparing your release pack...",
         failed: "Something went wrong",
       };
 
@@ -133,6 +137,98 @@ export const generationRouter = createTRPCRouter({
       return { queued: true };
     }),
 
+  selectDirection: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        directionIndex: z.number().int().min(0).max(2),
+        generationJobId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await selectDirection(
+        input.sessionId,
+        ctx.user.id,
+        input.directionIndex,
+        input.generationJobId
+      );
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: result.error.code === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      return { ok: true };
+    }),
+
+  refine: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        selectedPills: z.array(z.string()).optional().default([]),
+        refinementText: z.string().optional().default(""),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await refineSession(
+        input.sessionId,
+        ctx.user.id,
+        input.selectedPills,
+        input.refinementText
+      );
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: result.error.code === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      // Commit the refinement to the session BEFORE running interpretation.
+      // This resets status to "pending" so the pipeline can proceed.
+      // If interpretation fails, the session stays at "pending" (not "complete"),
+      // but the original brief text is preserved in refinementHistory.
+      await commitRefinement(
+        input.sessionId,
+        result.refinedBrief,
+        result.sessionSnapshot.refinementCount,
+        result.sessionSnapshot.refinementHistory
+      );
+
+      // Run interpretation on the refined brief.
+      return runInterpretation(input.sessionId, ctx.user.id, result.refinedBrief);
+    }),
+
+  getAllDirections: authedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify session belongs to user
+      const [session] = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      const { getAllDirectionRoundsForSession } = await import(
+        "@/server/services/direction-generation"
+      );
+      const rounds = await getAllDirectionRoundsForSession(input.sessionId);
+      return { rounds };
+    }),
+
   getDirections: authedProcedure
     .input(z.object({ sessionId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -154,7 +250,10 @@ export const generationRouter = createTRPCRouter({
         });
       }
 
-      const directions = await getDirectionsForSession(input.sessionId);
-      return { directions };
+      const result = await getDirectionsForSession(input.sessionId);
+      return {
+        directions: result?.directions ?? null,
+        generationJobId: result?.generationJobId ?? null,
+      };
     }),
 });

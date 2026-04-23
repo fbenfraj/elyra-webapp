@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "selected_generation_job_id" text;

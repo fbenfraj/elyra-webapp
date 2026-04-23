@@ -188,7 +188,9 @@ describe("getDirectionsForSession", () => {
   it("returns null when no directions exist", async () => {
     (db.select as ReturnType<typeof vi.fn>).mockImplementation(() => ({
       from: () => ({
-        where: () => Promise.resolve([]),
+        where: () => ({
+          orderBy: () => Promise.resolve([]),
+        }),
       }),
     }));
 
@@ -196,7 +198,7 @@ describe("getDirectionsForSession", () => {
     expect(result).toBeNull();
   });
 
-  it("returns directions with fresh signed URLs when they exist", async () => {
+  it("returns directions with fresh signed URLs and generationJobId when they exist", async () => {
     const storedDirections = [
       {
         id: "dir-1",
@@ -211,8 +213,10 @@ describe("getDirectionsForSession", () => {
 
     (db.select as ReturnType<typeof vi.fn>).mockImplementation(() => ({
       from: () => ({
-        where: () =>
-          Promise.resolve([{ directionData: { directions: storedDirections } }]),
+        where: () => ({
+          orderBy: () =>
+            Promise.resolve([{ id: "job-42", directionData: { directions: storedDirections } }]),
+        }),
       }),
     }));
 
@@ -221,11 +225,13 @@ describe("getDirectionsForSession", () => {
     );
 
     const result = await getDirectionsForSession("session-1");
-    expect(result).toHaveLength(1);
-    expect(result![0].heroImageUrl).toBe("https://r2.signed/sessions/session-1/directions/0/hero.webp");
-    expect(result![0].supportingImageUrls).toEqual([
+    expect(result).not.toBeNull();
+    expect(result!.generationJobId).toBe("job-42");
+    expect(result!.directions).toHaveLength(1);
+    expect(result!.directions[0].heroImageUrl).toBe("https://r2.signed/sessions/session-1/directions/0/hero.webp");
+    expect(result!.directions[0].supportingImageUrls).toEqual([
       "https://r2.signed/sessions/session-1/directions/0/support-0.webp",
     ]);
-    expect(result![0].moodLabel).toBe("Dark urban grit");
+    expect(result!.directions[0].moodLabel).toBe("Dark urban grit");
   });
 });

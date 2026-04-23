@@ -29,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   interpreting: "Interpreting brief",
   generating_directions: "Generating directions",
+  direction_selected: "Direction chosen",
   evaluating: "Evaluating",
   packaging: "Packaging",
   complete: "Completed",
@@ -49,7 +50,7 @@ export function SessionCard({
   createdAt,
 }: SessionCardProps) {
   const router = useRouter();
-  const isComplete = status === "complete";
+  const isComplete = status === "complete" || status === "direction_selected";
 
   return (
     <button
