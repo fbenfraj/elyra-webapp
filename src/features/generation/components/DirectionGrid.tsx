@@ -8,8 +8,8 @@ import { DirectionCard, DirectionCardSkeleton } from "./DirectionCard";
 interface DirectionGridProps {
   directions: Direction[];
   briefText: string;
-  selectedIndex: number | null;
-  onSelect: (index: number) => void;
+  selectedDirectionId: string | null;
+  onSelect: (directionId: string) => void;
   isSelectPending: boolean;
   onRecovery?: () => void;
 }
@@ -17,7 +17,7 @@ interface DirectionGridProps {
 export function DirectionGrid({
   directions,
   briefText,
-  selectedIndex,
+  selectedDirectionId,
   onSelect,
   isSelectPending,
   onRecovery,
@@ -98,10 +98,10 @@ export function DirectionGrid({
               direction={direction}
               index={i}
               isExpanded={expandedIndex === i}
-              isSelected={selectedIndex === i}
-              isDimmed={selectedIndex !== null && selectedIndex !== i}
+              isSelected={selectedDirectionId === direction.id}
+              isDimmed={selectedDirectionId !== null && selectedDirectionId !== direction.id}
               onToggleExpand={() => handleToggleExpand(i)}
-              onSelect={() => onSelect(i)}
+              onSelect={() => onSelect(direction.id)}
               isSelectPending={isSelectPending}
             />
           </div>
@@ -136,10 +136,10 @@ export function DirectionGrid({
                 direction={direction}
                 index={i}
                 isExpanded={expandedIndex === i}
-                isSelected={selectedIndex === i}
-                isDimmed={selectedIndex !== null && selectedIndex !== i}
+                isSelected={selectedDirectionId === direction.id}
+                isDimmed={selectedDirectionId !== null && selectedDirectionId !== direction.id}
                 onToggleExpand={() => handleToggleExpand(i)}
-                onSelect={() => onSelect(i)}
+                onSelect={() => onSelect(direction.id)}
                 isSelectPending={isSelectPending}
               />
             </div>
@@ -166,7 +166,7 @@ export function DirectionGrid({
       </div>
 
       {/* "None of these" recovery action */}
-      {onRecovery && selectedIndex === null && (
+      {onRecovery && selectedDirectionId === null && (
         <button
           type="button"
           onClick={onRecovery}

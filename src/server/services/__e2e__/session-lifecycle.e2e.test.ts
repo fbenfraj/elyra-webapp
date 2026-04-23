@@ -63,7 +63,7 @@ describe("Session Lifecycle E2E", () => {
     expect(dbSession.userId).toBe(testUserId);
     expect(dbSession.briefText).toBe("dark trap nighttime city vibes");
     expect(dbSession.refinementCount).toBe(0);
-    expect(dbSession.selectedDirectionIndex).toBeNull();
+    expect(dbSession.selectedDirectionId).toBeNull();
     expect(dbSession.createdAt).toBeInstanceOf(Date);
     expect(dbSession.updatedAt).toBeInstanceOf(Date);
   });
@@ -109,7 +109,7 @@ describe("Session Lifecycle E2E", () => {
     expect(dbSession.status).toBe("complete");
 
     // complete -> direction_selected via selectDirection
-    const result = await selectDirection(session.id, testUserId, 1, "gen-job-123");
+    const result = await selectDirection(session.id, testUserId, "dir-1", "gen-job-123");
     expect(result.ok).toBe(true);
 
     [dbSession] = await testDb
@@ -117,7 +117,7 @@ describe("Session Lifecycle E2E", () => {
       .from(sessions)
       .where(eq(sessions.id, session.id));
     expect(dbSession.status).toBe("direction_selected");
-    expect(dbSession.selectedDirectionIndex).toBe(1);
+    expect(dbSession.selectedDirectionId).toBe("dir-1");
     expect(dbSession.selectedGenerationJobId).toBe("gen-job-123");
   });
 });
@@ -333,7 +333,7 @@ describe("Schema Validation E2E", () => {
     expect(dbSession.refinementCount).toBe(0);
 
     // Verify nullable columns are null
-    expect(dbSession.selectedDirectionIndex).toBeNull();
+    expect(dbSession.selectedDirectionId).toBeNull();
     expect(dbSession.selectedGenerationJobId).toBeNull();
     expect(dbSession.refinementHistory).toBeNull();
 

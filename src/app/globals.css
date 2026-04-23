@@ -148,3 +148,30 @@
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   PACKAGE REVEAL ANIMATION
+   ============================================================ */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-reveal {
+  animation: reveal var(--duration-slow, 300ms) var(--ease-default, cubic-bezier(0.16, 1, 0.3, 1))
+    var(--reveal-delay, 0ms) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

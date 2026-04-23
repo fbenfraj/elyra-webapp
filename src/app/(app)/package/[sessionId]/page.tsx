@@ -1,9 +1,16 @@
-export default function PackagePage() {
+"use client";
+
+import { use } from "react";
+import { PackageReveal } from "@/features/generation/components/PackageReveal";
+
+type Props = {
+  params: Promise<{ sessionId: string }>;
+};
+
+export default function PackagePage({ params }: Props) {
+  const { sessionId } = use(params);
+
   return (
-    <div className="mx-auto flex w-full max-w-[var(--content-medium)] flex-1 flex-col items-center justify-center">
-      <p className="text-sm text-[var(--foreground-muted)]">
-        Package details coming soon.
-      </p>
-    </div>
+    <PackageReveal sessionId={sessionId} briefText="" />
   );
 }

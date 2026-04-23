@@ -22,5 +22,57 @@ export const DIRECTION_SUPPORTING_IMAGES = 2;
 export const DIRECTION_IMAGE_WIDTH = 1024;
 export const DIRECTION_IMAGE_HEIGHT = 1024;
 
+// fal.ai final image generation (Flux 2 Pro)
+export const FAL_FINAL_MODEL = "fal-ai/flux-pro/v2" as const;
+export const FAL_FINAL_COST_PER_IMAGE_CENTS = 5;
+export const FINAL_IMAGE_COUNT = 4;
+export const FINAL_IMAGE_WIDTH = 1024;
+export const FINAL_IMAGE_HEIGHT = 1024;
+
 // Cloudflare R2
 export const R2_SIGNED_URL_EXPIRY_SECONDS = 3600;
+
+// Tiered model routing (Story 6.1)
+export type ProviderTier = "preview" | "final";
+
+export type ModelRoute = {
+  provider: string;
+  model: string;
+};
+
+export const MODEL_ROUTING = {
+  imageGeneration: {
+    preview: { provider: "fal", model: FAL_PREVIEW_MODEL } as ModelRoute,
+    final: { provider: "fal", model: FAL_FINAL_MODEL } as ModelRoute,
+  },
+  evaluation: {
+    primary: { provider: "openai", model: "gpt-4o" } as ModelRoute,
+    fallback: { provider: "anthropic", model: "claude-sonnet-4-6" } as ModelRoute,
+  },
+  interpretation: {
+    primary: { provider: "openai", model: INTERPRETATION_MODEL } as ModelRoute,
+    fallback: { provider: "openai", model: INTERPRETATION_FALLBACK_MODEL } as ModelRoute,
+  },
+} as const;
+
+// Fallback chains (Story 6.2)
+export const FALLBACK_CHAINS = {
+  imageGeneration: {
+    preview: ["fal"],      // No fallback for preview
+    final: ["fal"],        // Add more providers later
+  },
+  evaluation: ["openai", "anthropic"],
+  interpretation: ["openai"],
+} as const;
+
+export const RETRY_CONFIG: Record<string, { maxRetries: number; retryDelayMs: number; timeoutMs: number }> = {
+  fal: { maxRetries: 2, retryDelayMs: 1000, timeoutMs: 30_000 },
+  openai: { maxRetries: 2, retryDelayMs: 1000, timeoutMs: 60_000 },
+  anthropic: { maxRetries: 2, retryDelayMs: 1000, timeoutMs: 60_000 },
+};
+
+export const CIRCUIT_BREAKER_CONFIG = {
+  failureThreshold: 5,
+  windowMs: 60_000,
+  cooldownMs: 30_000,
+} as const;

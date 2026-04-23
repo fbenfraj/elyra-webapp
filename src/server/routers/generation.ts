@@ -4,9 +4,17 @@ import { z } from "zod/v4";
 import { createTRPCRouter, authedProcedure } from "@/server/trpc/init";
 import { runInterpretation } from "@/server/services/interpretation";
 import { getDirectionsForSession } from "@/server/services/direction-generation";
-import { selectDirection } from "@/server/services/session";
+import { selectDirection, getSessionById, clearFailedStage, updateSessionStatus } from "@/server/services/session";
 import { refineSession, commitRefinement } from "@/server/services/refine-session";
+import { checkPackBoundary, incrementRegenCount } from "@/server/services/payment";
+import { checkUserBudget } from "@/server/services/budget";
+import { getCuratedImages } from "@/server/services/evaluation";
+import { selectImage, confirmSelection } from "@/server/services/image-generation";
 import { generationCreateDirections } from "@/trigger/generation-create-directions";
+import { generationCreateImages } from "@/trigger/generation-create-images";
+import { generationEvaluateBatch } from "@/trigger/generation-evaluate-batch";
+import { generationAssemblePackage } from "@/trigger/generation-assemble-package";
+import { generationInterpretBrief } from "@/trigger/generation-interpret-brief";
 import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
 import { visualSpecs } from "@/server/db/schema/visual-specs";
@@ -55,6 +63,7 @@ export const generationRouter = createTRPCRouter({
       const [session] = await db
         .select({
           status: sessions.status,
+          failedStage: sessions.failedStage,
         })
         .from(sessions)
         .where(
@@ -65,24 +74,33 @@ export const generationRouter = createTRPCRouter({
         );
 
       if (!session) {
-        return { status: "not_found", stepLabel: "Session not found" };
+        return { status: "not_found", stepLabel: "Session not found", failedStage: null, canRetry: false };
       }
 
       const stepLabelMap: Record<string, string> = {
         pending: "Starting...",
         interpreting: "Interpreting your vision...",
         generating_directions: "Exploring visual directions...",
-        evaluating: "Evaluating and curating...",
-        packaging: "Assembling your release package...",
         complete: "Ready",
         direction_selected: "Direction chosen",
         paid: "Preparing your release pack...",
+        generating_images: "Generating within your direction...",
+        evaluating: "Evaluating composition and mood...",
+        selecting: "Curating the strongest results...",
+        packaging: "Assembling your release package...",
+        delivered: "Your pack is ready",
         failed: "Something went wrong",
       };
+
+      // Content policy failures are not retryable
+      const isContentPolicy = session.failedStage === "content_policy";
+      const canRetry = session.status === "failed" && !isContentPolicy;
 
       return {
         status: session.status,
         stepLabel: stepLabelMap[session.status] ?? "Processing...",
+        failedStage: session.failedStage,
+        canRetry,
       };
     }),
 
@@ -141,7 +159,7 @@ export const generationRouter = createTRPCRouter({
     .input(
       z.object({
         sessionId: z.string(),
-        directionIndex: z.number().int().min(0).max(2),
+        directionId: z.string(),
         generationJobId: z.string().optional(),
       })
     )
@@ -149,7 +167,7 @@ export const generationRouter = createTRPCRouter({
       const result = await selectDirection(
         input.sessionId,
         ctx.user.id,
-        input.directionIndex,
+        input.directionId,
         input.generationJobId
       );
 
@@ -229,6 +247,110 @@ export const generationRouter = createTRPCRouter({
       return { rounds };
     }),
 
+  startImageGeneration: authedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [session] = await db
+        .select({
+          id: sessions.id,
+          status: sessions.status,
+          regenCount: sessions.regenCount,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      if (session.status !== "paid") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Session is not paid or ready for image generation",
+        });
+      }
+
+      // Check user daily budget
+      const userBudget = await checkUserBudget(ctx.user.id);
+      if (!userBudget.allowed) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You've reached your daily limit. Come back tomorrow!",
+        });
+      }
+
+      // Check pack boundary
+      const boundary = await checkPackBoundary(input.sessionId, ctx.user.id);
+      if (!boundary.isPaid) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Session is not paid",
+        });
+      }
+
+      const batchNumber = session.regenCount + 1;
+
+      // Move status before enqueueing to prevent double-submit races
+      await updateSessionStatus(session.id, "generating_images");
+
+      await generationCreateImages.trigger({
+        sessionId: session.id,
+        userId: ctx.user.id,
+        input: { batchNumber },
+      });
+
+      return { queued: true, batchNumber };
+    }),
+
+  getImageGenerationStatus: authedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const [session] = await db
+        .select({
+          status: sessions.status,
+          failedStage: sessions.failedStage,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        return { status: "not_found", stepLabel: "Session not found", failedStage: null, canRetry: false };
+      }
+
+      const stepLabelMap: Record<string, string> = {
+        paid: "Preparing your release pack...",
+        generating_images: "Generating within your direction...",
+        evaluating: "Evaluating composition and mood...",
+        selecting: "Curating the strongest results...",
+        packaging: "Assembling your release package...",
+        delivered: "Your pack is ready",
+        failed: "Something went wrong",
+      };
+
+      const isContentPolicy = session.failedStage === "content_policy";
+      const canRetry = session.status === "failed" && !isContentPolicy;
+
+      return {
+        status: session.status,
+        stepLabel: stepLabelMap[session.status] ?? "Processing...",
+        failedStage: session.failedStage,
+        canRetry,
+      };
+    }),
+
   getDirections: authedProcedure
     .input(z.object({ sessionId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -255,5 +377,275 @@ export const generationRouter = createTRPCRouter({
         directions: result?.directions ?? null,
         generationJobId: result?.generationJobId ?? null,
       };
+    }),
+
+  getCuratedImages: authedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      // Verify session belongs to user
+      const [session] = await db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      // Returns images WITHOUT scores — scores are never exposed to the client
+      const { images } = await getCuratedImages(input.sessionId);
+
+      return {
+        images: images.map((img) => ({
+          id: img.id,
+          imageUrl: img.imageUrl,
+          batchNumber: img.batchNumber,
+        })),
+      };
+    }),
+
+  selectImage: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        attemptId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await selectImage(
+        input.sessionId,
+        ctx.user.id,
+        input.attemptId
+      );
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: result.error.code === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      return { ok: true };
+    }),
+
+  regenerate: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify session ownership
+      const [session] = await db
+        .select({
+          id: sessions.id,
+          status: sessions.status,
+          regenCount: sessions.regenCount,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      if (session.status !== "selecting") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Session is not in selecting phase",
+        });
+      }
+
+      // Check user daily budget
+      const regenBudget = await checkUserBudget(ctx.user.id);
+      if (!regenBudget.allowed) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You've reached your daily limit. Come back tomorrow!",
+        });
+      }
+
+      // Check pack boundary
+      const boundary = await checkPackBoundary(input.sessionId, ctx.user.id);
+      if (!boundary.canRegenerate) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Regeneration limit reached",
+        });
+      }
+
+      // Increment regen count and move status before enqueueing to prevent double-submit races
+      await incrementRegenCount(input.sessionId);
+      await updateSessionStatus(input.sessionId, "generating_images");
+
+      const batchNumber = session.regenCount + 2; // +1 for initial batch, +1 for new regen
+
+      // Trigger generation-create-images task
+      await generationCreateImages.trigger({
+        sessionId: session.id,
+        userId: ctx.user.id,
+        input: { batchNumber },
+      });
+
+      return { queued: true, batchNumber };
+    }),
+
+  confirmSelection: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await confirmSelection(
+        input.sessionId,
+        ctx.user.id
+      );
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: result.error.code === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      // Fire-and-observe: trigger package assembly task
+      await generationAssemblePackage.trigger({
+        sessionId: input.sessionId,
+        userId: ctx.user.id,
+        input: {},
+      });
+
+      return { ok: true };
+    }),
+
+  retry: authedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const session = await getSessionById(input.sessionId);
+
+      if (!session) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      }
+
+      if (session.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      }
+
+      if (session.status !== "failed") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Session is not in a failed state",
+        });
+      }
+
+      if (!session.failedStage) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No failed stage recorded",
+        });
+      }
+
+      // Content policy failures are not retryable
+      if (session.failedStage === "content_policy") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This failure cannot be retried. Try adjusting your brief.",
+        });
+      }
+
+      // Map failedStage to the in-progress status to restore
+      const stageToStatusMap: Record<string, string> = {
+        interpreting: "interpreting",
+        generating_directions: "generating_directions",
+        generating_images: "generating_images",
+        evaluating: "evaluating",
+        packaging: "packaging",
+      };
+
+      const restoreStatus = stageToStatusMap[session.failedStage];
+      if (!restoreStatus) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unknown failed stage",
+        });
+      }
+
+      // Reset status and clear failedStage
+      await updateSessionStatus(input.sessionId, restoreStatus);
+      await clearFailedStage(input.sessionId);
+
+      // Re-trigger the appropriate task
+      const payload = { sessionId: input.sessionId, userId: ctx.user.id };
+
+      switch (session.failedStage) {
+        case "interpreting": {
+          await generationInterpretBrief.trigger({
+            ...payload,
+            input: { briefText: session.briefText },
+          });
+          break;
+        }
+        case "generating_directions": {
+          // Look up the visual spec for this session
+          const [spec] = await db
+            .select({ id: visualSpecs.id })
+            .from(visualSpecs)
+            .where(eq(visualSpecs.sessionId, input.sessionId));
+
+          if (!spec) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Visual specification not found for this session",
+            });
+          }
+
+          await generationCreateDirections.trigger({
+            ...payload,
+            input: { visualSpecId: spec.id },
+          });
+          break;
+        }
+        case "generating_images": {
+          const batchNumber = session.regenCount + 1;
+          await generationCreateImages.trigger({
+            ...payload,
+            input: { batchNumber },
+          });
+          break;
+        }
+        case "evaluating": {
+          await generationEvaluateBatch.trigger({
+            ...payload,
+            input: {},
+          });
+          break;
+        }
+        case "packaging": {
+          await generationAssemblePackage.trigger({
+            ...payload,
+            input: {},
+          });
+          break;
+        }
+      }
+
+      return { ok: true, retriedStage: session.failedStage };
     }),
 });

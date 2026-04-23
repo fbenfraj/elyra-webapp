@@ -109,7 +109,8 @@ export async function checkPackBoundary(sessionId: string, userId: string) {
     throw new Error("Session not found");
   }
 
-  const isPaid = session.status === "paid";
+  const paidStatuses = ["paid", "generating_images", "evaluating", "selecting", "packaging", "delivered"];
+  const isPaid = paidStatuses.includes(session.status);
   const canRegenerate = isPaid && session.regenCount < session.maxRegens;
 
   return {

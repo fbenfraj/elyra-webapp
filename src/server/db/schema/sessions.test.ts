@@ -14,12 +14,14 @@ describe("sessions schema", () => {
       "userId",
       "briefText",
       "status",
-      "selectedDirectionIndex",
+      "failedStage",
+      "selectedDirectionId",
       "selectedGenerationJobId",
       "refinementCount",
       "refinementHistory",
       "regenCount",
       "maxRegens",
+      "shareId",
       "createdAt",
       "updatedAt",
     ]);
@@ -40,9 +42,9 @@ describe("sessions schema", () => {
     expect(columns.status.notNull).toBe(true);
   });
 
-  it("has selectedDirectionIndex as nullable", () => {
+  it("has selectedDirectionId as nullable", () => {
     const columns = getTableColumns(sessions);
-    expect(columns.selectedDirectionIndex.notNull).toBe(false);
+    expect(columns.selectedDirectionId.notNull).toBe(false);
   });
 
   it("has refinementCount as non-nullable with default 0", () => {
@@ -61,7 +63,7 @@ describe("sessions schema", () => {
     expect(columns.briefText.name).toBe("brief_text");
     expect(columns.createdAt.name).toBe("created_at");
     expect(columns.updatedAt.name).toBe("updated_at");
-    expect(columns.selectedDirectionIndex.name).toBe("selected_direction_index");
+    expect(columns.selectedDirectionId.name).toBe("selected_direction_id");
     expect(columns.selectedGenerationJobId.name).toBe("selected_generation_job_id");
     expect(columns.refinementCount.name).toBe("refinement_count");
     expect(columns.refinementHistory.name).toBe("refinement_history");

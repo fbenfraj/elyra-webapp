@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "failed_stage" text;

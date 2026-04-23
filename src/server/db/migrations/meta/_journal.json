@@ -71,6 +71,62 @@
       "when": 1776985200000,
       "tag": "0009_create_processed_events",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777070400000,
+      "tag": "0010_create_generation_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1777156800000,
+      "tag": "0011_direction_id_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1777243200000,
+      "tag": "0012_create_deliverables",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1777329600000,
+      "tag": "0013_add_share_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1777416000000,
+      "tag": "0014_add_failed_stage",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1777502400000,
+      "tag": "0015_create_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1777588800000,
+      "tag": "0016_create_session_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777675200000,
+      "tag": "0017_create_provider_metrics",
+      "breakpoints": true
     }
   ]
 }

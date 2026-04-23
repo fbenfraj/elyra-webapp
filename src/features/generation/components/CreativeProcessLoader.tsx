@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { TimeoutLevel } from "@/config/generation-timeouts";
 
 const DIRECTION_PHRASES = [
   "Interpreting your vision...",
@@ -10,7 +11,17 @@ const DIRECTION_PHRASES = [
 
 const CYCLE_INTERVAL_MS = 4000;
 
-export function CreativeProcessLoader({ briefText }: { briefText: string }) {
+interface CreativeProcessLoaderProps {
+  briefText: string;
+  timeoutLevel?: TimeoutLevel;
+  onRetry?: () => void;
+}
+
+export function CreativeProcessLoader({
+  briefText,
+  timeoutLevel = "normal",
+  onRetry,
+}: CreativeProcessLoaderProps) {
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
 
@@ -19,6 +30,9 @@ export function CreativeProcessLoader({ briefText }: { briefText: string }) {
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => {
+    // Stop cycling when extended — we show static retry UI
+    if (timeoutLevel === "extended") return;
+
     const interval = setInterval(() => {
       if (prefersReducedMotion) {
         setPhraseIndex((prev) => (prev + 1) % DIRECTION_PHRASES.length);
@@ -32,7 +46,7 @@ export function CreativeProcessLoader({ briefText }: { briefText: string }) {
     }, CYCLE_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, timeoutLevel]);
 
   return (
     <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
@@ -51,28 +65,65 @@ export function CreativeProcessLoader({ briefText }: { briefText: string }) {
           aria-live="polite"
           className="mt-12 flex flex-col items-center"
         >
-          <p
-            className="text-lg text-[var(--foreground)]"
-            style={{
-              opacity: isVisible ? 1 : 0,
-              transition: prefersReducedMotion
-                ? "none"
-                : "opacity var(--duration-slow, 500ms) ease-in-out",
-            }}
-          >
-            {DIRECTION_PHRASES[phraseIndex]}
-          </p>
+          {timeoutLevel === "extended" ? (
+            <>
+              <p className="text-lg text-[var(--foreground)]">
+                We hit a snag. Your brief is saved — try again?
+              </p>
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="mt-6 rounded-md border border-[var(--foreground-subtle)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
+                >
+                  Try again
+                </button>
+              )}
+            </>
+          ) : timeoutLevel === "delayed" ? (
+            <>
+              <p className="text-lg text-[var(--foreground)]">
+                Taking a bit longer than usual...
+              </p>
+              {/* Pulsing dot indicator for delayed state */}
+              {!prefersReducedMotion && (
+                <div
+                  className="mt-8 h-2 w-2 rounded-full"
+                  data-testid="delayed-pulse"
+                  style={{
+                    backgroundColor: "var(--foreground-subtle)",
+                    opacity: 0.6,
+                    animation: "delayedPulse 1s ease-in-out infinite",
+                  }}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <p
+                className="text-lg text-[var(--foreground)]"
+                style={{
+                  opacity: isVisible ? 1 : 0,
+                  transition: prefersReducedMotion
+                    ? "none"
+                    : "opacity var(--duration-slow, 500ms) ease-in-out",
+                }}
+              >
+                {DIRECTION_PHRASES[phraseIndex]}
+              </p>
 
-          {/* Pulse element */}
-          {!prefersReducedMotion && (
-            <div
-              className="mt-8 h-2 w-2 rounded-full"
-              style={{
-                backgroundColor: "var(--foreground-subtle)",
-                opacity: 0.4,
-                animation: "pulse 1.5s ease-in-out infinite",
-              }}
-            />
+              {/* Pulse element */}
+              {!prefersReducedMotion && (
+                <div
+                  className="mt-8 h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor: "var(--foreground-subtle)",
+                    opacity: 0.4,
+                    animation: "pulse 1.5s ease-in-out infinite",
+                  }}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -81,6 +132,10 @@ export function CreativeProcessLoader({ briefText }: { briefText: string }) {
         @keyframes pulse {
           0%, 100% { transform: scale(1); opacity: 0.4; }
           50% { transform: scale(1.5); opacity: 0.2; }
+        }
+        @keyframes delayedPulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.8); opacity: 0.3; }
         }
       `}</style>
     </div>

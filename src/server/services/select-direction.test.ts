@@ -23,7 +23,7 @@ vi.mock("@/server/db/schema/sessions", () => ({
     userId: "user_id",
     briefText: "brief_text",
     status: "status",
-    selectedDirectionIndex: "selected_direction_index",
+    selectedDirectionId: "selected_direction_id",
     createdAt: "created_at",
     updatedAt: "updated_at",
   },
@@ -38,7 +38,7 @@ describe("selectDirection", () => {
     selectWhereMock.mockResolvedValueOnce([]);
 
     const { selectDirection } = await import("./session");
-    const result = await selectDirection("nonexistent", "user-1", 0);
+    const result = await selectDirection("nonexistent", "user-1", "dir-0");
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -52,7 +52,7 @@ describe("selectDirection", () => {
     ]);
 
     const { selectDirection } = await import("./session");
-    const result = await selectDirection("s1", "user-1", 0);
+    const result = await selectDirection("s1", "user-1", "dir-0");
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -60,20 +60,38 @@ describe("selectDirection", () => {
     }
   });
 
-  it("updates session when status is complete", async () => {
+  it("updates session with direction ID when status is complete", async () => {
     selectWhereMock.mockResolvedValueOnce([{ id: "s1", status: "complete" }]);
     whereMock.mockResolvedValueOnce(undefined);
 
     const { selectDirection } = await import("./session");
-    const result = await selectDirection("s1", "user-1", 1);
+    const result = await selectDirection("s1", "user-1", "dir-1");
 
     expect(result.ok).toBe(true);
     expect(updateMock).toHaveBeenCalled();
     expect(setMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        selectedDirectionIndex: 1,
+        selectedDirectionId: "dir-1",
         status: "direction_selected",
       })
     );
+  });
+
+  it("stores direction ID not index", async () => {
+    selectWhereMock.mockResolvedValueOnce([{ id: "s1", status: "complete" }]);
+    whereMock.mockResolvedValueOnce(undefined);
+
+    const { selectDirection } = await import("./session");
+    const result = await selectDirection("s1", "user-1", "dir-abc-123");
+
+    expect(result.ok).toBe(true);
+    expect(setMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedDirectionId: "dir-abc-123",
+      })
+    );
+    // Ensure no index is stored
+    const setArg = setMock.mock.calls[0]?.[0];
+    expect(setArg).not.toHaveProperty("selectedDirectionIndex");
   });
 });

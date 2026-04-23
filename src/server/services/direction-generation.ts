@@ -7,7 +7,7 @@ import { db } from "@/server/db";
 import { visualSpecs } from "@/server/db/schema/visual-specs";
 import { generationJobs } from "@/server/db/schema/generation-jobs";
 import { eq, desc } from "drizzle-orm";
-import { falAdapter } from "@/server/providers/fal";
+import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
 import { updateSessionStatus } from "@/server/services/session";
 
@@ -140,7 +140,7 @@ export async function generateDirections(
         const dirId = `${sessionId}-dir-${dirIndex}`;
 
         // Generate hero image
-        const heroResult = await falAdapter.generate(dir.imagePrompt, imageOptions);
+        const heroResult = await getImageAdapter("preview").generate(dir.imagePrompt, imageOptions);
         totalCostCents += heroResult.costCents;
 
         // Upload hero to R2
@@ -151,7 +151,7 @@ export async function generateDirections(
         const supportingImageKeys = await Promise.all(
           Array.from({ length: DIRECTION_SUPPORTING_IMAGES }, async (_, imgIndex) => {
             const supportPrompt = `${dir.imagePrompt}, variation ${imgIndex + 1}, different composition and angle`;
-            const result = await falAdapter.generate(supportPrompt, imageOptions);
+            const result = await getImageAdapter("preview").generate(supportPrompt, imageOptions);
             totalCostCents += result.costCents;
 
             const key = `sessions/${sessionId}/directions/${dirIndex}/support-${imgIndex}.webp`;

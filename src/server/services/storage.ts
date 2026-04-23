@@ -45,6 +45,19 @@ export async function getSignedImageUrl(key: string): Promise<string> {
   );
 }
 
+export async function downloadFromR2(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+  });
+  const response = await s3.send(command);
+  if (!response.Body) {
+    throw new Error(`Empty response body for key: ${key}`);
+  }
+  const bytes = await response.Body.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
 export async function uploadImageFromUrl(
   key: string,
   sourceUrl: string

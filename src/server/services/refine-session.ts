@@ -110,7 +110,7 @@ export async function commitRefinement(
       status: "pending",
       refinementCount: refinementCount + 1,
       refinementHistory,
-      selectedDirectionIndex: null,
+      selectedDirectionId: null,
       selectedGenerationJobId: null,
       updatedAt: sql`now()`,
     })

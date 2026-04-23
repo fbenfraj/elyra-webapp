@@ -32,6 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
   direction_selected: "Direction chosen",
   evaluating: "Evaluating",
   packaging: "Packaging",
+  delivered: "Ready to download",
   complete: "Completed",
   failed: "Failed",
 };
@@ -50,7 +51,7 @@ export function SessionCard({
   createdAt,
 }: SessionCardProps) {
   const router = useRouter();
-  const isComplete = status === "complete" || status === "direction_selected";
+  const isComplete = status === "complete" || status === "delivered" || status === "direction_selected";
 
   return (
     <button

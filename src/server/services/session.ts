@@ -20,10 +20,46 @@ export async function updateSessionStatus(sessionId: string, status: string) {
     .where(eq(sessions.id, sessionId));
 }
 
+/**
+ * Mark a session as failed, recording which stage failed.
+ * failedStage values: interpreting, generating_directions, generating_images, evaluating, packaging
+ */
+export async function failSession(sessionId: string, failedStage: string) {
+  await db
+    .update(sessions)
+    .set({ status: "failed", failedStage, updatedAt: sql`now()` })
+    .where(eq(sessions.id, sessionId));
+}
+
+/** Clear the failedStage after a successful retry reset. */
+export async function clearFailedStage(sessionId: string) {
+  await db
+    .update(sessions)
+    .set({ failedStage: null, updatedAt: sql`now()` })
+    .where(eq(sessions.id, sessionId));
+}
+
+/** Get a session by ID (for retry logic). */
+export async function getSessionById(sessionId: string) {
+  const [session] = await db
+    .select({
+      id: sessions.id,
+      userId: sessions.userId,
+      status: sessions.status,
+      failedStage: sessions.failedStage,
+      briefText: sessions.briefText,
+      regenCount: sessions.regenCount,
+    })
+    .from(sessions)
+    .where(eq(sessions.id, sessionId));
+
+  return session ?? null;
+}
+
 export async function selectDirection(
   sessionId: string,
   userId: string,
-  directionIndex: number,
+  directionId: string,
   generationJobId?: string
 ) {
   const [session] = await db
@@ -47,7 +83,7 @@ export async function selectDirection(
   await db
     .update(sessions)
     .set({
-      selectedDirectionIndex: directionIndex,
+      selectedDirectionId: directionId,
       selectedGenerationJobId: generationJobId ?? null,
       status: "direction_selected",
       updatedAt: sql`now()`,

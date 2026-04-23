@@ -16,9 +16,10 @@ interface RecoveryFlowProps {
     refinementText: string;
   }) => void;
   isSubmitting: boolean;
+  onPillSelected?: (pill: string) => void;
 }
 
-export function RecoveryFlow({ onSubmit, isSubmitting }: RecoveryFlowProps) {
+export function RecoveryFlow({ onSubmit, isSubmitting, onPillSelected }: RecoveryFlowProps) {
   const [selectedPills, setSelectedPills] = useState<Set<string>>(new Set());
   const [refinementText, setRefinementText] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -35,6 +36,7 @@ export function RecoveryFlow({ onSubmit, isSubmitting }: RecoveryFlowProps) {
         next.delete(pill);
       } else {
         next.add(pill);
+        onPillSelected?.(pill);
       }
       return next;
     });

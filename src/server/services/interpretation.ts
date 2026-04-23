@@ -4,6 +4,8 @@ import type { TaskResult } from "@/types/task";
 import type { VisualSpec } from "@/lib/schemas/visual-spec";
 import { moderateBrief, interpretBrief } from "@/server/providers/openai";
 import { updateSessionStatus } from "@/server/services/session";
+import { executeWithFallback } from "@/server/services/provider-executor";
+import { FALLBACK_CHAINS } from "@/config/providers";
 import { storeVisualSpec } from "@/server/services/visual-spec-store";
 
 const CONFIDENCE_THRESHOLD = 0.7;
@@ -41,7 +43,11 @@ export async function runInterpretation(
 
   // Step 3: LLM interpretation
   try {
-    const result = await interpretBrief(briefText);
+    const result = await executeWithFallback(
+      FALLBACK_CHAINS.interpretation,
+      async () => interpretBrief(briefText),
+      { sessionId }
+    );
     const { response } = result;
 
     // Step 4: Check confidence — return follow-up questions if too vague

@@ -8,6 +8,8 @@ import { BriefDisplay } from "@/features/generation/components/BriefDisplay";
 import { FollowUpQuestions } from "@/features/generation/components/FollowUpQuestions";
 import { StatusPoller } from "@/features/generation/components/StatusPoller";
 import { CreativeProcessLoader } from "@/features/generation/components/CreativeProcessLoader";
+import { GenerationError } from "@/features/generation/components/GenerationError";
+import { useGenerationStatus } from "@/features/generation/lib/use-generation-status";
 import { DirectionGrid } from "@/features/generation/components/DirectionGrid";
 import { DirectionCard } from "@/features/generation/components/DirectionCard";
 import { RecoveryFlow } from "@/features/generation/components/RecoveryFlow";
@@ -16,6 +18,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { PaywallModal } from "@/features/payment/components/PaywallModal";
+import { ImageSelection } from "@/features/generation/components/ImageSelection";
+import { PackageReveal } from "@/features/generation/components/PackageReveal";
+import { trpcClient } from "@/lib/trpc/client";
 
 type DirectionRound = {
   generationJobId: string;
@@ -56,7 +61,7 @@ type PageState =
       briefText: string;
       directions: Direction[];
       generationJobId: string;
-      selectedIndex: number;
+      selectedDirectionId: string;
       showPaywall: boolean;
     }
   | {
@@ -65,7 +70,28 @@ type PageState =
       briefText: string;
       directions: Direction[];
       generationJobId: string;
-      selectedIndex: number;
+      selectedDirectionId: string;
+    }
+  | {
+      phase: "generating_images";
+      sessionId: string;
+      briefText: string;
+      heroImageUrl: string | null;
+    }
+  | {
+      phase: "selecting";
+      sessionId: string;
+      briefText: string;
+    }
+  | {
+      phase: "packaging";
+      sessionId: string;
+      briefText: string;
+    }
+  | {
+      phase: "delivered";
+      sessionId: string;
+      briefText: string;
     }
   | { phase: "error"; briefText: string; message: string };
 
@@ -80,7 +106,7 @@ function getInitialStateFromParams(searchParams: URLSearchParams): PageState {
       briefText: "",
       directions: [],
       generationJobId: "",
-      selectedIndex: 0,
+      selectedDirectionId: "",
     };
   }
 
@@ -91,7 +117,7 @@ function getInitialStateFromParams(searchParams: URLSearchParams): PageState {
       briefText: "",
       directions: [],
       generationJobId: "",
-      selectedIndex: 0,
+      selectedDirectionId: "",
       showPaywall: true,
     };
   }
@@ -279,6 +305,26 @@ export default function GeneratePage() {
     }
   }, [searchParams]);
 
+  // Track screen enter/exit for phases with a sessionId
+  const currentPhase = state.phase;
+  const currentSessionId = "sessionId" in state ? state.sessionId : null;
+  useEffect(() => {
+    if (!currentSessionId) return;
+    void trpcClient.feedback.captureEvent.mutate({
+      sessionId: currentSessionId,
+      action: "screen_entered",
+      payload: { screen: currentPhase },
+    });
+    const enteredAt = Date.now();
+    return () => {
+      void trpcClient.feedback.captureEvent.mutate({
+        sessionId: currentSessionId,
+        action: "screen_exited",
+        payload: { screen: currentPhase, durationMs: Date.now() - enteredAt },
+      });
+    };
+  }, [currentPhase, currentSessionId]);
+
   const handleDirectionsComplete = useCallback(
     (directions: Direction[], generationJobId: string) => {
       setState((prev) => {
@@ -308,6 +354,10 @@ export default function GeneratePage() {
   const handleRecovery = useCallback(() => {
     setState((prev) => {
       if (prev.phase !== "directions_ready") return prev;
+      void trpcClient.feedback.captureEvent.mutate({
+        sessionId: prev.sessionId,
+        action: "recovery_started",
+      });
       // Push current directions to previous rounds
       setPreviousRounds((rounds) => [
         ...rounds,
@@ -326,6 +376,14 @@ export default function GeneratePage() {
   const handleRecoverySubmit = useCallback(
     (data: { selectedPills: string[]; refinementText: string }) => {
       if (!("sessionId" in state)) return;
+      void trpcClient.feedback.captureEvent.mutate({
+        sessionId: state.sessionId,
+        action: "brief_refined",
+        payload: {
+          selectedPills: data.selectedPills,
+          hasRefinementText: data.refinementText.length > 0,
+        },
+      });
       setState({
         phase: "processing",
         sessionId: state.sessionId,
@@ -394,8 +452,8 @@ export default function GeneratePage() {
         briefText={state.briefText}
         directions={state.phase === "recovering" ? [] : state.directions}
         generationJobId={state.generationJobId}
-        selectedIndex={
-          state.phase === "direction_selected" ? state.selectedIndex : null
+        selectedDirectionId={
+          state.phase === "direction_selected" ? state.selectedDirectionId : null
         }
         showPaywall={
           state.phase === "direction_selected" ? state.showPaywall : false
@@ -411,14 +469,14 @@ export default function GeneratePage() {
         }}
         checkoutError={checkoutError}
         isCheckoutLoading={createCheckout.isPending}
-        onSelected={(index, jobId) =>
+        onSelected={(directionId, jobId) =>
           setState({
             phase: "direction_selected",
             sessionId: state.sessionId,
             briefText: state.briefText,
             directions: state.directions,
             generationJobId: jobId,
-            selectedIndex: index,
+            selectedDirectionId: directionId,
             showPaywall: true,
           })
         }
@@ -436,23 +494,96 @@ export default function GeneratePage() {
     return (
       <PaidPhase
         sessionId={state.sessionId}
+        briefText={state.briefText}
+        heroImageUrl={
+          state.directions.find((d) => d.id === state.selectedDirectionId)?.heroImageUrl ?? null
+        }
+        onImageGenerationStarted={(heroImageUrl) =>
+          setState({
+            phase: "generating_images",
+            sessionId: state.sessionId,
+            briefText: state.briefText,
+            heroImageUrl,
+          })
+        }
       />
     );
   }
 
+  if (state.phase === "generating_images") {
+    return (
+      <ImageGenerationPhase
+        sessionId={state.sessionId}
+        briefText={state.briefText}
+        heroImageUrl={state.heroImageUrl}
+        onSelectingReady={() =>
+          setState({
+            phase: "selecting",
+            sessionId: state.sessionId,
+            briefText: state.briefText,
+          })
+        }
+        onError={(message) =>
+          setState({
+            phase: "error",
+            briefText: state.briefText,
+            message,
+          })
+        }
+      />
+    );
+  }
+
+  if (state.phase === "selecting") {
+    return (
+      <SelectionPhase
+        sessionId={state.sessionId}
+        briefText={state.briefText}
+        onPackagingStarted={() =>
+          setState({
+            phase: "packaging",
+            sessionId: state.sessionId,
+            briefText: state.briefText,
+          })
+        }
+      />
+    );
+  }
+
+  if (state.phase === "packaging") {
+    return (
+      <PackagingPhase
+        sessionId={state.sessionId}
+        briefText={state.briefText}
+        onDelivered={() =>
+          setState({
+            phase: "delivered",
+            sessionId: state.sessionId,
+            briefText: state.briefText,
+          })
+        }
+      />
+    );
+  }
+
+  if (state.phase === "delivered") {
+    return (
+      <PackageReveal sessionId={state.sessionId} briefText={state.briefText} />
+    );
+  }
+
   if (state.phase === "error") {
+    const isContentPolicy = state.message.includes("Try adjusting your brief");
     return (
       <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
-        {state.briefText && <BriefDisplay text={state.briefText} />}
-        <p className="mx-auto mt-3 max-w-[var(--content-narrow)] text-sm text-[var(--foreground-muted)]">
-          {state.message}
-        </p>
-        <button
-          onClick={() => setState({ phase: "input" })}
-          className="mt-4 text-sm text-[var(--accent)] hover:underline"
-        >
-          Try again
-        </button>
+        <GenerationError
+          message={state.message}
+          canRetry={!isContentPolicy}
+          onRetry={() => setState({ phase: "input" })}
+          showEditBrief={isContentPolicy}
+          onEditBrief={() => setState({ phase: "input" })}
+          briefText={state.briefText}
+        />
       </div>
     );
   }
@@ -479,6 +610,9 @@ function DirectionPollingPhase({
   onError: (message: string) => void;
 }) {
   const trpc = useTRPC();
+  const { timeoutLevel, reset: resetTimeout } = useGenerationStatus({
+    phase: "generating_directions",
+  });
 
   const { data: statusData } = useQuery(
     trpc.generation.getStatus.queryOptions(
@@ -500,6 +634,17 @@ function DirectionPollingPhase({
     )
   );
 
+  const retryMutation = useMutation(
+    trpc.generation.retry.mutationOptions({
+      onSuccess: () => {
+        resetTimeout();
+      },
+      onError: () => {
+        onError("Something went wrong. Give it another try.");
+      },
+    })
+  );
+
   useEffect(() => {
     if (directionsData?.directions && directionsData?.generationJobId) {
       onComplete(directionsData.directions, directionsData.generationJobId);
@@ -507,14 +652,37 @@ function DirectionPollingPhase({
   }, [directionsData?.directions, directionsData?.generationJobId, onComplete]);
 
   useEffect(() => {
-    if (statusData?.status === "failed") {
+    if (statusData?.status === "failed" && statusData.canRetry === false) {
+      // Non-retryable failure (e.g. content policy)
       onError(
-        "Something went wrong generating your directions. Give it another try."
+        statusData.failedStage === "content_policy"
+          ? "We couldn't generate that image. Try adjusting your brief."
+          : "Something went wrong generating your directions."
       );
     }
-  }, [statusData?.status, onError]);
+  }, [statusData?.status, statusData?.canRetry, statusData?.failedStage, onError]);
 
-  return <CreativeProcessLoader briefText={briefText} />;
+  // Show inline error for retryable server failures
+  if (statusData?.status === "failed" && statusData.canRetry) {
+    return (
+      <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+        <GenerationError
+          message="Something went wrong. Try again?"
+          canRetry
+          onRetry={() => retryMutation.mutate({ sessionId })}
+          briefText={briefText}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <CreativeProcessLoader
+      briefText={briefText}
+      timeoutLevel={timeoutLevel}
+      onRetry={() => retryMutation.mutate({ sessionId })}
+    />
+  );
 }
 
 function DirectionRevealPhase({
@@ -522,7 +690,7 @@ function DirectionRevealPhase({
   briefText,
   directions,
   generationJobId,
-  selectedIndex,
+  selectedDirectionId,
   showPaywall,
   onSelected,
   onRecovery,
@@ -540,9 +708,9 @@ function DirectionRevealPhase({
   briefText: string;
   directions: Direction[];
   generationJobId: string;
-  selectedIndex: number | null;
+  selectedDirectionId: string | null;
   showPaywall: boolean;
-  onSelected: (index: number, generationJobId: string) => void;
+  onSelected: (directionId: string, generationJobId: string) => void;
   onRecovery: () => void;
   isRecovering: boolean;
   onRecoverySubmit: (data: {
@@ -562,16 +730,21 @@ function DirectionRevealPhase({
   const selectDirection = useMutation(
     trpc.generation.selectDirection.mutationOptions({
       onSuccess: (_data, variables) => {
-        onSelected(variables.directionIndex, variables.generationJobId ?? generationJobId);
+        void trpcClient.feedback.captureEvent.mutate({
+          sessionId,
+          action: "direction_selected",
+          payload: { directionId: variables.directionId },
+        });
+        onSelected(variables.directionId, variables.generationJobId ?? generationJobId);
       },
     })
   );
 
   const handleSelectFromRound = (
-    directionIndex: number,
+    directionId: string,
     roundJobId: string
   ) => {
-    selectDirection.mutate({ sessionId, directionIndex, generationJobId: roundJobId });
+    selectDirection.mutate({ sessionId, directionId, generationJobId: roundJobId });
   };
 
   return (
@@ -603,7 +776,7 @@ function DirectionRevealPhase({
                     isSelected={false}
                     isDimmed={false}
                     onToggleExpand={() => {}}
-                    onSelect={() => handleSelectFromRound(dirIdx, round.generationJobId)}
+                    onSelect={() => handleSelectFromRound(direction.id, round.generationJobId)}
                     isSelectPending={selectDirection.isPending}
                   />
                 ))}
@@ -630,7 +803,7 @@ function DirectionRevealPhase({
                     onSelect={() => {
                       selectDirection.mutate({
                         sessionId,
-                        directionIndex: dirIdx,
+                        directionId: direction.id,
                         generationJobId,
                       });
                     }}
@@ -660,6 +833,13 @@ function DirectionRevealPhase({
               <RecoveryFlow
                 onSubmit={onRecoverySubmit}
                 isSubmitting={isRefining}
+                onPillSelected={(pill) => {
+                  void trpcClient.feedback.captureEvent.mutate({
+                    sessionId,
+                    action: "suggestion_pill_selected",
+                    payload: { pill },
+                  });
+                }}
               />
             </div>
           )}
@@ -697,7 +877,7 @@ function DirectionRevealPhase({
                       isSelected={false}
                       isDimmed={false}
                       onToggleExpand={() => {}}
-                      onSelect={() => handleSelectFromRound(dirIdx, round.generationJobId)}
+                      onSelect={() => handleSelectFromRound(direction.id, round.generationJobId)}
                       isSelectPending={selectDirection.isPending}
                     />
                   ))}
@@ -714,7 +894,7 @@ function DirectionRevealPhase({
                         isDimmed={false}
                         onToggleExpand={() => {}}
                         onSelect={() =>
-                          handleSelectFromRound(dirIdx, round.generationJobId)
+                          handleSelectFromRound(direction.id, round.generationJobId)
                         }
                         isSelectPending={selectDirection.isPending}
                       />
@@ -730,9 +910,9 @@ function DirectionRevealPhase({
             <DirectionGrid
               directions={directions}
               briefText={briefText}
-              selectedIndex={selectedIndex}
-              onSelect={(index) => {
-                selectDirection.mutate({ sessionId, directionIndex: index, generationJobId });
+              selectedDirectionId={selectedDirectionId}
+              onSelect={(directionId) => {
+                selectDirection.mutate({ sessionId, directionId, generationJobId });
               }}
               isSelectPending={selectDirection.isPending}
               onRecovery={onRecovery}
@@ -749,6 +929,13 @@ function DirectionRevealPhase({
                 <RecoveryFlow
                   onSubmit={onRecoverySubmit}
                   isSubmitting={isRefining}
+                  onPillSelected={(pill) => {
+                    void trpcClient.feedback.captureEvent.mutate({
+                      sessionId,
+                      action: "suggestion_pill_selected",
+                      payload: { pill },
+                    });
+                  }}
                 />
               </div>
             </div>
@@ -774,10 +961,21 @@ function DirectionRevealPhase({
   );
 }
 
-function PaidPhase({ sessionId }: { sessionId: string }) {
+function PaidPhase({
+  sessionId,
+  briefText,
+  heroImageUrl,
+  onImageGenerationStarted,
+}: {
+  sessionId: string;
+  briefText: string;
+  heroImageUrl: string | null;
+  onImageGenerationStarted: (heroImageUrl: string | null) => void;
+}) {
   const trpc = useTRPC();
+  const imageGenTriggeredRef = useRef(false);
 
-  // Poll until webhook confirms payment (isPaid: true), then stop
+  // Poll until webhook confirms payment (isPaid: true), then trigger image gen
   const { data: packStatus } = useQuery(
     trpc.payment.getPackStatus.queryOptions(
       { sessionId },
@@ -791,27 +989,483 @@ function PaidPhase({ sessionId }: { sessionId: string }) {
     )
   );
 
+  const startImageGen = useMutation(
+    trpc.generation.startImageGeneration.mutationOptions({
+      onSuccess: () => {
+        onImageGenerationStarted(heroImageUrl);
+      },
+    })
+  );
+
+  useEffect(() => {
+    if (packStatus?.isPaid && !imageGenTriggeredRef.current) {
+      imageGenTriggeredRef.current = true;
+      startImageGen.mutate({ sessionId });
+    }
+  }, [packStatus?.isPaid, sessionId, startImageGen]);
+
   return (
     <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
       <p className="text-xl font-semibold tracking-[-0.02em] text-[var(--foreground)]">
-        Generation starting...
+        Confirming payment...
       </p>
       <p className="mt-2 text-sm text-[var(--foreground-muted)]">
-        Your release pack is being prepared
+        {briefText ? briefText.slice(0, 80) : "Your release pack is being prepared"}
       </p>
-      {packStatus?.isPaid && (
-        <div className="mt-6 text-center">
-          {packStatus.canRegenerate ? (
-            <p className="text-sm text-[var(--foreground-muted)]">
-              {packStatus.maxRegens - packStatus.regenCount} regeneration{packStatus.maxRegens - packStatus.regenCount !== 1 ? "s" : ""} remaining
-            </p>
-          ) : (
-            <p className="text-sm text-[var(--foreground-muted)]">
-              These are your strongest options
-            </p>
-          )}
+    </div>
+  );
+}
+
+function ImageGenerationPhase({
+  sessionId,
+  briefText,
+  heroImageUrl,
+  onSelectingReady,
+  onError,
+}: {
+  sessionId: string;
+  briefText: string;
+  heroImageUrl: string | null;
+  onSelectingReady: () => void;
+  onError?: (message: string) => void;
+}) {
+  const trpc = useTRPC();
+  const { timeoutLevel, reset: resetTimeout } = useGenerationStatus({
+    phase: "generating_images",
+  });
+
+  const { data: statusData } = useQuery(
+    trpc.generation.getImageGenerationStatus.queryOptions(
+      { sessionId },
+      {
+        refetchInterval: (query) => {
+          const status = query.state.data?.status;
+          if (
+            status === "selecting" ||
+            status === "packaging" ||
+            status === "delivered" ||
+            status === "failed"
+          ) {
+            return false;
+          }
+          return 2500;
+        },
+      }
+    )
+  );
+
+  const retryMutation = useMutation(
+    trpc.generation.retry.mutationOptions({
+      onSuccess: () => {
+        resetTimeout();
+      },
+    })
+  );
+
+  // Transition to selecting phase when status changes
+  useEffect(() => {
+    if (statusData?.status === "selecting") {
+      onSelectingReady();
+    }
+  }, [statusData?.status, onSelectingReady]);
+
+  // Non-retryable failures
+  useEffect(() => {
+    if (statusData?.status === "failed" && statusData.canRetry === false && onError) {
+      onError(
+        statusData.failedStage === "content_policy"
+          ? "We couldn't generate that image. Try adjusting your brief."
+          : "Something went wrong."
+      );
+    }
+  }, [statusData?.status, statusData?.canRetry, statusData?.failedStage, onError]);
+
+  // Show inline error for retryable server failures
+  if (statusData?.status === "failed" && statusData.canRetry) {
+    return (
+      <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+        <GenerationError
+          message="Something went wrong. Try again?"
+          canRetry
+          onRetry={() => retryMutation.mutate({ sessionId })}
+          briefText={briefText}
+        />
+      </div>
+    );
+  }
+
+  const phrases = [
+    "Generating within your direction...",
+    "Evaluating composition and mood...",
+    "Curating the strongest results...",
+    "Refining the visual details...",
+    "Aligning with your creative vision...",
+  ];
+
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  useEffect(() => {
+    if (timeoutLevel === "extended") return;
+
+    const interval = setInterval(() => {
+      if (prefersReducedMotion) {
+        setPhraseIndex((prev) => (prev + 1) % phrases.length);
+      } else {
+        setIsVisible(false);
+        setTimeout(() => {
+          setPhraseIndex((prev) => (prev + 1) % phrases.length);
+          setIsVisible(true);
+        }, 500);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [prefersReducedMotion, phrases.length, timeoutLevel]);
+
+  return (
+    <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+      {/* Blurred hero image background */}
+      {heroImageUrl && (
+        <div className="pointer-events-none fixed inset-0" style={{ opacity: 0.3 }}>
+          <img
+            src={heroImageUrl}
+            alt=""
+            className="h-full w-full object-cover blur-[40px]"
+          />
         </div>
       )}
+
+      {/* Fallback gradient when no hero image */}
+      {!heroImageUrl && (
+        <div className="pointer-events-none fixed inset-0 opacity-30">
+          <div className="h-full w-full bg-gradient-to-br from-[#1a1a2e] via-[#09090b] to-[#16213e]" />
+        </div>
+      )}
+
+      <div className="relative z-10 mx-auto w-full max-w-[var(--content-narrow)]">
+        {/* Brief display */}
+        <p className="text-sm text-[var(--foreground-muted)]">Your brief</p>
+        <p className="mt-1 text-base text-[var(--foreground)]">{briefText}</p>
+
+        {/* Status from server */}
+        {statusData?.stepLabel && timeoutLevel === "normal" && (
+          <p className="mt-4 text-xs text-[var(--foreground-subtle)]">
+            {statusData.stepLabel}
+          </p>
+        )}
+
+        {/* Narrative text */}
+        <div aria-live="polite" className="mt-12 flex flex-col items-center">
+          {timeoutLevel === "extended" ? (
+            <>
+              <p className="text-lg text-[var(--foreground)]">
+                We hit a snag. Your brief is saved — try again?
+              </p>
+              <button
+                type="button"
+                onClick={() => retryMutation.mutate({ sessionId })}
+                className="mt-6 rounded-md border border-[var(--foreground-subtle)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
+              >
+                Try again
+              </button>
+            </>
+          ) : timeoutLevel === "delayed" ? (
+            <p className="text-lg text-[var(--foreground)]">
+              Taking a bit longer than usual...
+            </p>
+          ) : (
+            <p
+              className="text-lg text-[var(--foreground)]"
+              style={{
+                opacity: isVisible ? 1 : 0,
+                transition: prefersReducedMotion
+                  ? "none"
+                  : "opacity var(--duration-slow, 500ms) ease-in-out",
+              }}
+            >
+              {phrases[phraseIndex]}
+            </p>
+          )}
+
+          {/* Pulse element — only in normal/delayed */}
+          {!prefersReducedMotion && timeoutLevel !== "extended" && (
+            <div
+              className="mt-8 h-2 w-2 rounded-full"
+              style={{
+                backgroundColor: "var(--foreground-subtle)",
+                opacity: timeoutLevel === "delayed" ? 0.6 : 0.4,
+                animation:
+                  timeoutLevel === "delayed"
+                    ? "delayedPulse 1s ease-in-out infinite"
+                    : "pulse 1.5s ease-in-out infinite",
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.4; }
+          50% { transform: scale(1.5); opacity: 0.2; }
+        }
+        @keyframes delayedPulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.8); opacity: 0.3; }
+        }
+      `}</style>
     </div>
+  );
+}
+
+function PackagingPhase({
+  sessionId,
+  briefText,
+  onDelivered,
+}: {
+  sessionId: string;
+  briefText: string;
+  onDelivered: () => void;
+}) {
+  const trpc = useTRPC();
+  const { timeoutLevel, reset: resetTimeout } = useGenerationStatus({
+    phase: "packaging",
+  });
+
+  const { data: statusData } = useQuery(
+    trpc.generation.getImageGenerationStatus.queryOptions(
+      { sessionId },
+      {
+        refetchInterval: (query) => {
+          const status = query.state.data?.status;
+          if (status === "delivered" || status === "failed") return false;
+          return 2500;
+        },
+      }
+    )
+  );
+
+  const retryMutation = useMutation(
+    trpc.generation.retry.mutationOptions({
+      onSuccess: () => {
+        resetTimeout();
+      },
+    })
+  );
+
+  useEffect(() => {
+    if (statusData?.status === "delivered") {
+      onDelivered();
+    }
+  }, [statusData?.status, onDelivered]);
+
+  // Show inline error for retryable server failures
+  if (statusData?.status === "failed" && statusData.canRetry) {
+    return (
+      <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+        <GenerationError
+          message="Something went wrong. Try again?"
+          canRetry
+          onRetry={() => retryMutation.mutate({ sessionId })}
+          briefText={briefText}
+        />
+      </div>
+    );
+  }
+
+  const phrases = [
+    "Assembling your release package...",
+    "Optimizing for every platform...",
+    "Preparing your cover art...",
+    "Generating platform formats...",
+    "Almost ready...",
+  ];
+
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  useEffect(() => {
+    if (timeoutLevel === "extended") return;
+
+    const interval = setInterval(() => {
+      if (prefersReducedMotion) {
+        setPhraseIndex((prev) => (prev + 1) % phrases.length);
+      } else {
+        setIsVisible(false);
+        setTimeout(() => {
+          setPhraseIndex((prev) => (prev + 1) % phrases.length);
+          setIsVisible(true);
+        }, 500);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [prefersReducedMotion, phrases.length, timeoutLevel]);
+
+  return (
+    <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+      <div className="relative z-10 mx-auto w-full max-w-[var(--content-narrow)]">
+        <p className="text-sm text-[var(--foreground-muted)]">Your brief</p>
+        <p className="mt-1 text-base text-[var(--foreground)]">{briefText}</p>
+
+        {statusData?.stepLabel && timeoutLevel === "normal" && (
+          <p className="mt-4 text-xs text-[var(--foreground-subtle)]">
+            {statusData.stepLabel}
+          </p>
+        )}
+
+        <div aria-live="polite" className="mt-12 flex flex-col items-center">
+          {timeoutLevel === "extended" ? (
+            <>
+              <p className="text-lg text-[var(--foreground)]">
+                We hit a snag. Your brief is saved — try again?
+              </p>
+              <button
+                type="button"
+                onClick={() => retryMutation.mutate({ sessionId })}
+                className="mt-6 rounded-md border border-[var(--foreground-subtle)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
+              >
+                Try again
+              </button>
+            </>
+          ) : timeoutLevel === "delayed" ? (
+            <p className="text-lg text-[var(--foreground)]">
+              Taking a bit longer than usual...
+            </p>
+          ) : (
+            <p
+              className="text-lg text-[var(--foreground)]"
+              style={{
+                opacity: isVisible ? 1 : 0,
+                transition: prefersReducedMotion
+                  ? "none"
+                  : "opacity var(--duration-slow, 500ms) ease-in-out",
+              }}
+            >
+              {phrases[phraseIndex]}
+            </p>
+          )}
+
+          {!prefersReducedMotion && timeoutLevel !== "extended" && (
+            <div
+              className="mt-8 h-2 w-2 rounded-full"
+              style={{
+                backgroundColor: "var(--foreground-subtle)",
+                opacity: timeoutLevel === "delayed" ? 0.6 : 0.4,
+                animation:
+                  timeoutLevel === "delayed"
+                    ? "delayedPulse 1s ease-in-out infinite"
+                    : "pulse 1.5s ease-in-out infinite",
+              }}
+            />
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.4; }
+          50% { transform: scale(1.5); opacity: 0.2; }
+        }
+        @keyframes delayedPulse {
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.8); opacity: 0.3; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function SelectionPhase({
+  sessionId,
+  briefText,
+  onPackagingStarted,
+}: {
+  sessionId: string;
+  briefText: string;
+  onPackagingStarted: () => void;
+}) {
+  const trpc = useTRPC();
+  const [isRegenerating, setIsRegenerating] = useState(false);
+
+  const { data: curatedData, refetch: refetchImages } = useQuery(
+    trpc.generation.getCuratedImages.queryOptions({ sessionId })
+  );
+
+  const { data: packStatus, refetch: refetchPackStatus } = useQuery(
+    trpc.payment.getPackStatus.queryOptions({ sessionId })
+  );
+
+  // Poll for status changes during regeneration
+  const { data: statusData } = useQuery(
+    trpc.generation.getImageGenerationStatus.queryOptions(
+      { sessionId },
+      {
+        refetchInterval: isRegenerating ? 2500 : false,
+      }
+    )
+  );
+
+  // When regeneration completes (status returns to selecting), refresh images
+  useEffect(() => {
+    if (isRegenerating && statusData?.status === "selecting") {
+      setIsRegenerating(false);
+      refetchImages();
+      refetchPackStatus();
+    }
+  }, [isRegenerating, statusData?.status, refetchImages, refetchPackStatus]);
+
+  const regenerateMutation = useMutation(
+    trpc.generation.regenerate.mutationOptions({
+      onSuccess: () => {
+        void trpcClient.feedback.captureEvent.mutate({
+          sessionId,
+          action: "regeneration_requested",
+          payload: { regenCount },
+        });
+        setIsRegenerating(true);
+      },
+      onError: () => {
+        setIsRegenerating(false);
+      },
+    })
+  );
+
+  const confirmMutation = useMutation(
+    trpc.generation.confirmSelection.mutationOptions({
+      onSuccess: () => {
+        toast.success("Selection confirmed", { duration: 3000 });
+        onPackagingStarted();
+      },
+    })
+  );
+
+  const images = curatedData?.images ?? [];
+  const canRegenerate = packStatus?.canRegenerate ?? false;
+  const regenCount = packStatus?.regenCount ?? 0;
+  const maxRegens = packStatus?.maxRegens ?? 3;
+
+  return (
+    <ImageSelection
+      sessionId={sessionId}
+      briefText={briefText}
+      images={images}
+      canRegenerate={canRegenerate}
+      regenCount={regenCount}
+      maxRegens={maxRegens}
+      isRegenerating={isRegenerating || regenerateMutation.isPending}
+      onRegenerate={() => regenerateMutation.mutate({ sessionId })}
+      onConfirm={() => confirmMutation.mutate({ sessionId })}
+      isConfirmPending={confirmMutation.isPending}
+    />
   );
 }

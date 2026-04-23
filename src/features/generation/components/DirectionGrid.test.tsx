@@ -54,7 +54,7 @@ describe("DirectionGrid", () => {
   const defaultProps = {
     directions: mockDirections,
     briefText: "A dark aggressive track with industrial vibes",
-    selectedIndex: null,
+    selectedDirectionId: null,
     onSelect: vi.fn(),
     isSelectPending: false,
   };
@@ -105,7 +105,7 @@ describe("DirectionGrid", () => {
 
   it("hides 'None of these' when a direction is already selected", () => {
     render(
-      <DirectionGrid {...defaultProps} selectedIndex={1} onRecovery={vi.fn()} />
+      <DirectionGrid {...defaultProps} selectedDirectionId="d2" onRecovery={vi.fn()} />
     );
 
     expect(

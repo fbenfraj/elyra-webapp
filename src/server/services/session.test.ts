@@ -27,7 +27,9 @@ vi.mock("@/server/db/schema/sessions", () => ({
     userId: "user_id",
     briefText: "brief_text",
     status: "status",
+    selectedDirectionId: "selected_direction_id",
     createdAt: "created_at",
+    updatedAt: "updated_at",
   },
 }));
 
