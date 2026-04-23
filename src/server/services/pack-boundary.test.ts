@@ -15,6 +15,12 @@ const mockUpdate = vi.fn();
 const mockSet = vi.fn();
 const mockSetWhere = vi.fn();
 
+/** What `db.update().set().where().returning()` resolves to */
+let updateReturningResult: unknown[] = [{ id: "session-1" }];
+const mockUpdateReturning = vi.fn().mockImplementation(() =>
+  Promise.resolve(updateReturningResult)
+);
+
 vi.mock("@/server/db", () => ({
   db: {
     insert: () => ({ values: () => ({ returning: vi.fn(), onConflictDoNothing: vi.fn().mockReturnValue({ returning: vi.fn() }) }) }),
@@ -29,7 +35,12 @@ vi.mock("@/server/db", () => ({
       return {
         set: (...sArgs: unknown[]) => {
           mockSet(...sArgs);
-          return { where: mockSetWhere };
+          return {
+            where: (...wArgs: unknown[]) => {
+              mockSetWhere(...wArgs);
+              return { returning: mockUpdateReturning };
+            },
+          };
         },
       };
     },
@@ -69,6 +80,7 @@ vi.mock("@/server/services/idempotency", () => ({
 describe("pack boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    updateReturningResult = [{ id: "session-1" }];
     process.env.STRIPE_SECRET_KEY = "sk_test_fake";
   });
 
@@ -143,12 +155,21 @@ describe("pack boundary", () => {
   });
 
   describe("incrementRegenCount", () => {
-    it("calls update with increment expression", async () => {
+    it("calls update with increment expression when session is in valid state", async () => {
+      updateReturningResult = [{ id: "session-1" }];
       const { incrementRegenCount } = await import("@/server/services/payment");
       await incrementRegenCount("session-1");
 
       expect(mockUpdate).toHaveBeenCalled();
       expect(mockSet).toHaveBeenCalled();
+    });
+
+    it("throws when session is not in a valid state for regen", async () => {
+      updateReturningResult = []; // 0 rows — pre-condition failed
+      const { incrementRegenCount } = await import("@/server/services/payment");
+      await expect(incrementRegenCount("session-1")).rejects.toThrow(
+        "not in a valid state"
+      );
     });
   });
 

@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { db } from "@/server/db";
 import { payments } from "@/server/db/schema/payments";
 import { sessions } from "@/server/db/schema/sessions";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { PACK_PRICE_CENTS, PACK_CURRENCY, PACK_REGEN_LIMIT } from "@/config/pricing";
 import { withIdempotency } from "@/server/services/idempotency";
 
@@ -73,7 +73,10 @@ export async function handleWebhookEvent(event: Stripe.Event) {
       status: "completed",
     }).onConflictDoNothing({ target: payments.stripeSessionId });
 
-    await db
+    // Pre-condition: session must be in direction_selected to transition to paid.
+    // If 0 rows are affected, throw so withIdempotency releases the claim
+    // and a retry can re-attempt once the session reaches the correct state.
+    const updated = await db
       .update(sessions)
       .set({
         status: "paid",
@@ -81,7 +84,19 @@ export async function handleWebhookEvent(event: Stripe.Event) {
         regenCount: 0,
         updatedAt: sql`now()`,
       })
-      .where(eq(sessions.id, sessionId));
+      .where(
+        and(
+          eq(sessions.id, sessionId),
+          eq(sessions.status, "direction_selected")
+        )
+      )
+      .returning({ id: sessions.id });
+
+    if (updated.length === 0) {
+      throw new Error(
+        `Cannot transition session "${sessionId}" to paid: not in direction_selected state`
+      );
+    }
   });
 }
 
@@ -122,11 +137,26 @@ export async function checkPackBoundary(sessionId: string, userId: string) {
 }
 
 export async function incrementRegenCount(sessionId: string) {
-  await db
+  // Pre-condition: only allow regen count increment when session is in a
+  // paid-forward state. The regenerate flow is triggered from `selecting`
+  // (user requests another batch), then proceeds through `generating_images`.
+  const result = await db
     .update(sessions)
     .set({
       regenCount: sql`${sessions.regenCount} + 1`,
       updatedAt: sql`now()`,
     })
-    .where(eq(sessions.id, sessionId));
+    .where(
+      and(
+        eq(sessions.id, sessionId),
+        sql`${sessions.status} IN ('paid', 'generating_images', 'selecting')`
+      )
+    )
+    .returning({ id: sessions.id });
+
+  if (result.length === 0) {
+    throw new Error(
+      `Cannot increment regen count: session "${sessionId}" is not in a valid state`
+    );
+  }
 }

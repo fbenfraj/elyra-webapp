@@ -232,7 +232,8 @@ export async function selectDirection(
     };
   }
 
-  await db
+  // Optimistic lock: only update if status hasn't changed since we checked
+  const result = await db
     .update(sessions)
     .set({
       selectedDirectionId: directionId,
@@ -240,7 +241,23 @@ export async function selectDirection(
       status: "direction_selected",
       updatedAt: sql`now()`,
     })
-    .where(eq(sessions.id, sessionId));
+    .where(
+      and(
+        eq(sessions.id, sessionId),
+        eq(sessions.status, session.status as string)
+      )
+    )
+    .returning({ id: sessions.id });
+
+  if (result.length === 0) {
+    return {
+      ok: false as const,
+      error: {
+        code: "STALE_SESSION",
+        message: "Session was modified concurrently. Please try again.",
+      },
+    };
+  }
 
   return { ok: true as const };
 }

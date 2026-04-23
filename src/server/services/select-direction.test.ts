@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const whereMock = vi.fn();
+const returningMock = vi.fn().mockResolvedValue([{ id: "s1" }]);
+const whereMock = vi.fn().mockReturnValue({ returning: returningMock });
 const setMock = vi.fn().mockReturnValue({ where: whereMock });
 const updateMock = vi.fn().mockReturnValue({ set: setMock });
 
@@ -62,7 +63,7 @@ describe("selectDirection", () => {
 
   it("updates session with direction ID when status is complete", async () => {
     selectWhereMock.mockResolvedValueOnce([{ id: "s1", status: "complete" }]);
-    whereMock.mockResolvedValueOnce(undefined);
+    returningMock.mockResolvedValueOnce([{ id: "s1" }]);
 
     const { selectDirection } = await import("./session");
     const result = await selectDirection("s1", "user-1", "dir-1");
@@ -79,7 +80,7 @@ describe("selectDirection", () => {
 
   it("stores direction ID not index", async () => {
     selectWhereMock.mockResolvedValueOnce([{ id: "s1", status: "complete" }]);
-    whereMock.mockResolvedValueOnce(undefined);
+    returningMock.mockResolvedValueOnce([{ id: "s1" }]);
 
     const { selectDirection } = await import("./session");
     const result = await selectDirection("s1", "user-1", "dir-abc-123");
@@ -93,5 +94,18 @@ describe("selectDirection", () => {
     // Ensure no index is stored
     const setArg = setMock.mock.calls[0]?.[0];
     expect(setArg).not.toHaveProperty("selectedDirectionIndex");
+  });
+
+  it("returns STALE_SESSION error when concurrent modification occurs", async () => {
+    selectWhereMock.mockResolvedValueOnce([{ id: "s1", status: "selecting" }]);
+    returningMock.mockResolvedValueOnce([]); // 0 rows — concurrent modification
+
+    const { selectDirection } = await import("./session");
+    const result = await selectDirection("s1", "user-1", "dir-1");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe("STALE_SESSION");
+    }
   });
 });

@@ -24,6 +24,7 @@ const mockSelectWhere = vi.fn();
 const mockUpdate = vi.fn();
 const mockSet = vi.fn();
 const mockSetWhere = vi.fn();
+const mockUpdateReturning = vi.fn().mockResolvedValue([{ id: "session-123" }]);
 
 vi.mock("@/server/db", () => ({
   db: {
@@ -41,7 +42,12 @@ vi.mock("@/server/db", () => ({
       return {
         set: (...sArgs: unknown[]) => {
           mockSet(...sArgs);
-          return { where: mockSetWhere };
+          return {
+            where: (...wArgs: unknown[]) => {
+              mockSetWhere(...wArgs);
+              return { returning: mockUpdateReturning };
+            },
+          };
         },
       };
     },
