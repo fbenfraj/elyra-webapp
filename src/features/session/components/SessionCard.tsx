@@ -29,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   interpreting: "Interpreting brief",
   generating_directions: "Generating directions",
+  selecting: "Selecting direction",
   direction_selected: "Direction chosen",
   evaluating: "Evaluating",
   packaging: "Packaging",
@@ -42,6 +43,9 @@ type SessionCardProps = {
   briefText: string;
   status: string;
   createdAt: Date;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 };
 
 export function SessionCard({
@@ -49,16 +53,45 @@ export function SessionCard({
   briefText,
   status,
   createdAt,
+  selectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: SessionCardProps) {
   const router = useRouter();
+  const isFailed = status === "failed";
   const isComplete = status === "complete" || status === "delivered" || status === "direction_selected";
 
   return (
     <button
       type="button"
-      onClick={() => router.push(`/package/${id}`)}
-      className="flex w-full items-center gap-4 rounded-lg p-3 text-left transition-colors duration-[var(--duration-fast)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      onClick={() => {
+        if (selectMode) {
+          onToggleSelect?.();
+        } else {
+          router.push(`/package/${id}`);
+        }
+      }}
+      className={`flex w-full items-center gap-4 rounded-lg p-3 text-left transition-colors duration-[var(--duration-fast)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
+        isSelected ? "bg-[var(--background-overlay)]" : ""
+      }`}
     >
+      {/* Checkbox in select mode */}
+      {selectMode && (
+        <div
+          className={`flex size-5 shrink-0 items-center justify-center rounded border transition-colors ${
+            isSelected
+              ? "border-[var(--accent)] bg-[var(--accent)]"
+              : "border-[var(--border)]"
+          }`}
+        >
+          {isSelected && (
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="var(--background)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+      )}
+
       {/* Thumbnail placeholder */}
       <div className="size-20 shrink-0 rounded-[var(--radius-md)] bg-[var(--background-overlay)]" />
 
@@ -67,7 +100,7 @@ export function SessionCard({
         <p className="text-sm text-[var(--foreground-muted)]">
           {truncate(briefText, 60)}
         </p>
-        <p className="mt-1 text-sm text-[var(--foreground)]">
+        <p className={`mt-1 text-sm ${isFailed ? "text-red-400" : "text-[var(--foreground)]"}`}>
           {STATUS_LABELS[status] ?? status}
         </p>
         <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
@@ -76,15 +109,19 @@ export function SessionCard({
       </div>
 
       {/* Status indicator */}
-      <div
-        className="size-2 shrink-0 rounded-full"
-        style={{
-          backgroundColor: isComplete
-            ? "var(--success)"
-            : "#eab308",
-        }}
-        aria-label={isComplete ? "Completed" : "In progress"}
-      />
+      {!selectMode && (
+        <div
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            backgroundColor: isFailed
+              ? "#ef4444"
+              : isComplete
+                ? "var(--success)"
+                : "#eab308",
+          }}
+          aria-label={isFailed ? "Failed" : isComplete ? "Completed" : "In progress"}
+        />
+      )}
     </button>
   );
 }

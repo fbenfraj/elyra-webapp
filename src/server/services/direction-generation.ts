@@ -32,6 +32,7 @@ import {
   DIRECTION_SUPPORTING_IMAGES,
   DIRECTION_IMAGE_WIDTH,
   DIRECTION_IMAGE_HEIGHT,
+  FAL_PREVIEW_MODEL,
 } from "@/config/providers";
 
 const directionPromptSchema = z.object({
@@ -131,7 +132,7 @@ export async function generateDirections(
     const imageOptions = {
       width: DIRECTION_IMAGE_WIDTH,
       height: DIRECTION_IMAGE_HEIGHT,
-      model: "flux-schnell",
+      model: FAL_PREVIEW_MODEL,
       numImages: 1,
     };
 
@@ -194,8 +195,9 @@ export async function generateDirections(
         durationMs: Date.now() - start,
       },
     };
-  } catch {
-    await failSession(sessionId, "generating_directions").catch((err) => console.error("[direction-generation] failSession error:", err));
+  } catch (err) {
+    console.error("[direction-generation] failed:", err);
+    await failSession(sessionId, "generating_directions").catch((e) => console.error("[direction-generation] failSession error:", e));
 
     return {
       ok: false,

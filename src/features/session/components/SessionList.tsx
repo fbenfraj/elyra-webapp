@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTRPC } from "@/lib/trpc/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SessionCard } from "@/features/session/components/SessionCard";
 
@@ -26,9 +27,32 @@ function SessionListSkeleton() {
 export function SessionList() {
   const router = useRouter();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+
   const { data: sessions, isLoading } = useQuery(
     trpc.session.list.queryOptions()
   );
+
+  const deleteSession = useMutation(
+    trpc.session.delete.mutationOptions({
+      onSuccess: () => {
+        setSelected(new Set());
+        setSelectMode(false);
+        queryClient.invalidateQueries({ queryKey: trpc.session.list.queryKey() });
+      },
+    })
+  );
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   if (isLoading) {
     return <SessionListSkeleton />;
@@ -56,12 +80,60 @@ export function SessionList() {
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
           Releases
         </h1>
-        <Button
-          variant="ghost-secondary"
-          onClick={() => router.push("/generate")}
-        >
-          New release
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectMode ? (
+            <>
+              <Button
+                variant="ghost-secondary"
+                onClick={() => {
+                  if (sessions && selected.size < sessions.length) {
+                    setSelected(new Set(sessions.map((s) => s.id)));
+                  } else {
+                    setSelected(new Set());
+                  }
+                }}
+              >
+                {sessions && selected.size === sessions.length ? "Deselect all" : "Select all"}
+              </Button>
+              <Button
+                variant="ghost-secondary"
+                onClick={() => {
+                  setSelectMode(false);
+                  setSelected(new Set());
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="ghost-secondary"
+                disabled={selected.size === 0 || deleteSession.isPending}
+                onClick={() =>
+                  deleteSession.mutate({ sessionIds: [...selected] })
+                }
+                className="text-red-400 hover:text-red-300"
+              >
+                {deleteSession.isPending
+                  ? "Deleting..."
+                  : `Delete${selected.size > 0 ? ` (${selected.size})` : ""}`}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost-secondary"
+                onClick={() => setSelectMode(true)}
+              >
+                Select
+              </Button>
+              <Button
+                variant="ghost-secondary"
+                onClick={() => router.push("/generate")}
+              >
+                New release
+              </Button>
+            </>
+          )}
+        </div>
       </div>
       <div className="space-y-1">
         {sessions.map((session) => (
@@ -71,6 +143,9 @@ export function SessionList() {
             briefText={session.briefText}
             status={session.status}
             createdAt={new Date(session.createdAt)}
+            selectMode={selectMode}
+            isSelected={selected.has(session.id)}
+            onToggleSelect={() => toggleSelect(session.id)}
           />
         ))}
       </div>

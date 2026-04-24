@@ -90,9 +90,10 @@ export async function runInterpretation(
         durationMs: Date.now() - start,
       },
     };
-  } catch {
+  } catch (err) {
+    console.error("[interpretation] failed:", err);
     // Update session to failed state
-    await failSession(sessionId, "interpreting").catch((err) => console.error("[interpretation] failSession error:", err));
+    await failSession(sessionId, "interpreting").catch((e) => console.error("[interpretation] failSession error:", e));
 
     return {
       ok: false,

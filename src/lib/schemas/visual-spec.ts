@@ -7,7 +7,7 @@ export const visualSpecSchema = z.object({
   style: z.string().min(1),
   culturalReferences: z.array(z.string()),
   genreContext: z.string().min(1),
-  continuityCues: z.string().optional(),
+  continuityCues: z.string().nullable(),
 });
 
 export type VisualSpec = z.infer<typeof visualSpecSchema>;
@@ -27,9 +27,9 @@ export const interpretationResponseSchema = z.object({
       "If confidence < 0.7, provide 1-2 conversational nudge questions to help the artist clarify. Questions should feel like a creative director asking, not a search engine. Examples: 'More gritty or more polished?', 'Any artist or album cover that captures this feeling?'"
     ),
   spec: visualSpecSchema
-    .optional()
+    .nullable()
     .describe(
-      "The structured visual specification. Only provide when confidence >= 0.7."
+      "The structured visual specification. Provide when confidence >= 0.7, otherwise set to null."
     ),
 });
 

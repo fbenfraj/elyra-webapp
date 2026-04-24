@@ -85,6 +85,49 @@ export class StaleSessionError extends Error {
 // Session CRUD
 // ---------------------------------------------------------------------------
 
+export async function deleteSessions(userId: string, sessionIds: string[]) {
+  if (sessionIds.length === 0) return;
+
+  for (const id of sessionIds) {
+    // Verify ownership before deleting
+    const [session] = await db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(and(eq(sessions.id, id), eq(sessions.userId, userId)));
+
+    if (!session) continue;
+
+    // Delete child rows in dependency order, then the session
+    await db.execute(
+      sql`DELETE FROM generation_attempts WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM deliverables WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM generation_jobs WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM visual_specs WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM payments WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM session_events WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM feedback WHERE session_id = ${id}`
+    );
+    await db.execute(
+      sql`DELETE FROM provider_metrics WHERE session_id = ${id}`
+    );
+    await db
+      .delete(sessions)
+      .where(eq(sessions.id, id));
+  }
+}
+
 export async function createSession(userId: string, briefText: string) {
   const [session] = await db
     .insert(sessions)

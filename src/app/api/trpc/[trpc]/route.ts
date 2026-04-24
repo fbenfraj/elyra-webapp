@@ -8,6 +8,9 @@ const handler = (req: Request) =>
     req,
     router: appRouter,
     createContext: createTRPCContext,
+    onError: ({ error, path }) => {
+      console.error(`[tRPC] ${path}: ${error.message}`, error.cause ?? "");
+    },
   });
 
 export { handler as GET, handler as POST };

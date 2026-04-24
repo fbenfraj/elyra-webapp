@@ -31,7 +31,8 @@ export const generationCreateDirections = task({
       }));
 
       return result;
-    } catch {
+    } catch (err) {
+      console.error("[trigger:generation-create-directions] failed:", err);
       const durationMs = Date.now() - taskStart;
       console.error(JSON.stringify({
         event: "pipeline_stage_complete",

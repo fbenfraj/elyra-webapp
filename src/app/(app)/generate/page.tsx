@@ -620,7 +620,7 @@ function DirectionPollingPhase({
       {
         refetchInterval: (query) => {
           const status = query.state.data?.status;
-          if (status === "complete" || status === "failed") return false;
+          if (status === "selecting" || status === "complete" || status === "failed") return false;
           return 3000;
         },
       }
@@ -630,7 +630,7 @@ function DirectionPollingPhase({
   const { data: directionsData } = useQuery(
     trpc.generation.getDirections.queryOptions(
       { sessionId },
-      { enabled: statusData?.status === "complete" }
+      { enabled: statusData?.status === "selecting" }
     )
   );
 
