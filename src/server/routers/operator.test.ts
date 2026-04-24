@@ -37,15 +37,15 @@ vi.mock("@/server/services/provider-health", () => ({
 // Mock the trpc init to provide testable procedures
 const mockUser = { id: "operator-user-1", email: "op@test.com" };
 
-vi.mock("@/server/trpc/init", () => {
-  const { initTRPC } = require("@trpc/server");
-  const t = initTRPC.context<{ user: typeof mockUser | null }>().create();
+vi.mock("@/server/trpc/init", async () => {
+  const trpcServer = await import("@trpc/server");
+  const t = trpcServer.initTRPC.context<{ user: typeof mockUser | null }>().create();
 
-  const authedProcedure = t.procedure.use(async ({ ctx, next }) => {
-    if (!ctx.user) {
-      throw new (require("@trpc/server").TRPCError)({ code: "UNAUTHORIZED" });
+  const authedProcedure = t.procedure.use(async (opts) => {
+    if (!opts.ctx.user) {
+      throw new trpcServer.TRPCError({ code: "UNAUTHORIZED" });
     }
-    return next({ ctx: { ...ctx, user: ctx.user } });
+    return opts.next({ ctx: { ...opts.ctx, user: opts.ctx.user } });
   });
 
   return {
@@ -93,9 +93,10 @@ describe("operator router", () => {
       }));
 
       const { initTRPC, TRPCError } = await import("@trpc/server");
+      const superjson = (await import("superjson")).default;
       const t = initTRPC
-        .context<{ user: { id: string; email: string } | null }>()
-        .create();
+        .context<{ user: { id: string; email?: string } | null }>()
+        .create({ transformer: superjson });
 
       vi.doMock("@/server/trpc/init", () => {
         const authedProcedure = t.procedure.use(async ({ ctx, next }) => {
@@ -112,7 +113,9 @@ describe("operator router", () => {
       });
 
       const { operatorRouter } = await import("./operator");
-      const caller = t.createCallerFactory(operatorRouter)({
+      // Test mock context differs from production (no supabase); services are fully mocked
+      const createCaller = t.createCallerFactory as (router: unknown) => (ctx: unknown) => Record<string, (...args: unknown[]) => unknown>;
+      const caller = createCaller(operatorRouter)({
         user: { id: "not-an-operator", email: "user@test.com" },
       });
 
@@ -154,9 +157,10 @@ describe("operator router", () => {
       }));
 
       const { initTRPC, TRPCError } = await import("@trpc/server");
+      const superjson = (await import("superjson")).default;
       const t = initTRPC
-        .context<{ user: { id: string; email: string } | null }>()
-        .create();
+        .context<{ user: { id: string; email?: string } | null }>()
+        .create({ transformer: superjson });
 
       vi.doMock("@/server/trpc/init", () => {
         const authedProcedure = t.procedure.use(async ({ ctx, next }) => {
@@ -173,11 +177,13 @@ describe("operator router", () => {
       });
 
       const { operatorRouter } = await import("./operator");
-      const caller = t.createCallerFactory(operatorRouter)({
+      // Test mock context differs from production (no supabase); services are fully mocked
+      const createCaller = t.createCallerFactory as (router: unknown) => (ctx: unknown) => Record<string, (...args: unknown[]) => unknown>;
+      const caller = createCaller(operatorRouter)({
         user: { id: operatorId, email: "op@test.com" },
       });
 
-      const result = await caller.getPipelineMetrics();
+      const result = await caller.getPipelineMetrics() as { hitRate: number; successRate: { firstAttempt: number; overall: number }; avgCost: number };
       expect(result.hitRate).toBe(85);
       expect(result.successRate).toEqual({ firstAttempt: 60, overall: 80 });
       expect(result.avgCost).toBe(42);

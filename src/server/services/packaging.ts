@@ -6,7 +6,7 @@ import { sessions } from "@/server/db/schema/sessions";
 import { generationAttempts } from "@/server/db/schema/generation-attempts";
 import { generationJobs } from "@/server/db/schema/generation-jobs";
 import { deliverables } from "@/server/db/schema/deliverables";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { uploadImage, getSignedImageUrl, downloadFromR2 } from "@/server/services/storage";
 import archiver from "archiver";
 import { updateSessionStatus, failSession } from "@/server/services/session";
@@ -45,8 +45,6 @@ type DeliverableInsert = {
   height: number | null;
   mimeType: string;
 };
-
-const MAX_COVER_BYTES = 4 * 1024 * 1024; // 4 MB
 
 /**
  * Assembles the full release package for a session.
@@ -284,7 +282,7 @@ export async function assemblePackage(
     };
   } catch (error) {
     console.error("[packaging] assemblePackage failed:", error);
-    await failSession(sessionId, "packaging").catch(() => {});
+    await failSession(sessionId, "packaging").catch((err) => console.error("[packaging] failSession error:", err));
 
     return {
       ok: false,

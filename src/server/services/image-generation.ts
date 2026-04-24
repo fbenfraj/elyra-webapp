@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
 import { generationJobs } from "@/server/db/schema/generation-jobs";
 import { generationAttempts } from "@/server/db/schema/generation-attempts";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl } from "@/server/services/storage";
 import { executeWithFallback } from "@/server/services/provider-executor";
@@ -318,7 +318,7 @@ export async function generateImages(
     };
   } catch (err) {
     if (isContentPolicyError(err)) {
-      await failSession(sessionId, "content_policy").catch(() => {});
+      await failSession(sessionId, "content_policy").catch((err) => console.error("[image-generation] failSession error:", err));
       return {
         ok: false,
         error: {
@@ -329,7 +329,7 @@ export async function generateImages(
       };
     }
 
-    await failSession(sessionId, "generating_images").catch(() => {});
+    await failSession(sessionId, "generating_images").catch((err) => console.error("[image-generation] failSession error:", err));
 
     return {
       ok: false,
@@ -378,7 +378,7 @@ export async function refinePrompt(
       };
     }
 
-    const { refinedPrompt, costCents, durationMs: _dur } =
+    const { refinedPrompt, costCents } =
       await refinePromptWithFeedback(
         latestAttempt.promptUsed,
         evaluationFeedback

@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { eq, like, and } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { sessions } from "@/server/db/schema/sessions";
 import { payments } from "@/server/db/schema/payments";
 import { processedEvents } from "@/server/db/schema/processed-events";

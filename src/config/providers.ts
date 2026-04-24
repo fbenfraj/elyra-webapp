@@ -42,16 +42,16 @@ export type ModelRoute = {
 
 export const MODEL_ROUTING = {
   imageGeneration: {
-    preview: { provider: "fal", model: FAL_PREVIEW_MODEL } as ModelRoute,
-    final: { provider: "fal", model: FAL_FINAL_MODEL } as ModelRoute,
+    preview: { provider: "fal", model: FAL_PREVIEW_MODEL } satisfies ModelRoute,
+    final: { provider: "fal", model: FAL_FINAL_MODEL } satisfies ModelRoute,
   },
   evaluation: {
-    primary: { provider: "openai", model: "gpt-4o" } as ModelRoute,
-    fallback: { provider: "anthropic", model: "claude-sonnet-4-6" } as ModelRoute,
+    primary: { provider: "openai", model: "gpt-4o" } satisfies ModelRoute,
+    fallback: { provider: "anthropic", model: "claude-sonnet-4-6" } satisfies ModelRoute,
   },
   interpretation: {
-    primary: { provider: "openai", model: INTERPRETATION_MODEL } as ModelRoute,
-    fallback: { provider: "openai", model: INTERPRETATION_FALLBACK_MODEL } as ModelRoute,
+    primary: { provider: "openai", model: INTERPRETATION_MODEL } satisfies ModelRoute,
+    fallback: { provider: "openai", model: INTERPRETATION_FALLBACK_MODEL } satisfies ModelRoute,
   },
 } as const;
 

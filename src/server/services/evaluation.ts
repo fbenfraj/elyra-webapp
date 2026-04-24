@@ -116,7 +116,7 @@ async function loadDirectionContext(
 
 export async function evaluateBatch(
   sessionId: string,
-  userId: string
+  _userId: string
 ): Promise<
   TaskResult<{
     evaluatedCount: number;

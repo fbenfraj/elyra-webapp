@@ -10,7 +10,7 @@
  * - Task 6: Combined observability verification
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared mocks required by server-only modules
@@ -110,7 +110,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationInterpretBrief } = await import(
         "./generation-interpret-brief"
       );
-      await (generationInterpretBrief as { run: Function }).run({
+      await (generationInterpretBrief as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-1",
         userId: "user-1",
         input: { briefText: "dark moody album cover" },
@@ -144,7 +144,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationInterpretBrief } = await import(
         "./generation-interpret-brief"
       );
-      await (generationInterpretBrief as { run: Function }).run({
+      await (generationInterpretBrief as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-1",
         userId: "user-1",
         input: { briefText: "bad content" },
@@ -168,7 +168,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationInterpretBrief } = await import(
         "./generation-interpret-brief"
       );
-      const result = await (generationInterpretBrief as { run: Function }).run({
+      const result = await (generationInterpretBrief as unknown as { run: (...args: unknown[]) => Promise<{ ok: boolean }> }).run({
         sessionId: "sess-1",
         userId: "user-1",
         input: { briefText: "test" },
@@ -194,7 +194,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationInterpretBrief } = await import(
         "./generation-interpret-brief"
       );
-      await (generationInterpretBrief as { run: Function }).run({
+      await (generationInterpretBrief as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-1",
         userId: "user-1",
         input: { briefText: "test" },
@@ -258,7 +258,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationCreateDirections } = await import(
         "./generation-create-directions"
       );
-      await (generationCreateDirections as { run: Function }).run({
+      await (generationCreateDirections as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-2",
         userId: "user-2",
         input: { visualSpecId: "spec-1" },
@@ -283,7 +283,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationCreateDirections } = await import(
         "./generation-create-directions"
       );
-      await (generationCreateDirections as { run: Function }).run({
+      await (generationCreateDirections as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-2",
         userId: "user-2",
         input: { visualSpecId: "spec-1" },
@@ -359,7 +359,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationCreateImages } = await import(
         "./generation-create-images"
       );
-      await (generationCreateImages as { run: Function }).run({
+      await (generationCreateImages as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-3",
         userId: "user-3",
         input: { batchNumber: 1 },
@@ -385,7 +385,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationCreateImages } = await import(
         "./generation-create-images"
       );
-      await (generationCreateImages as { run: Function }).run({
+      await (generationCreateImages as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-3",
         userId: "user-3",
         input: { batchNumber: 1 },
@@ -448,7 +448,7 @@ describe("Task 1: Structured log field completeness", () => {
       const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
       const mod = await import("./generation-evaluate-batch");
-      await (mod.generationEvaluateBatch as unknown as { run: Function }).run({
+      await (mod.generationEvaluateBatch as unknown as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-4",
         userId: "user-4",
         input: {},
@@ -472,7 +472,7 @@ describe("Task 1: Structured log field completeness", () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const mod = await import("./generation-evaluate-batch");
-      await (mod.generationEvaluateBatch as unknown as { run: Function }).run({
+      await (mod.generationEvaluateBatch as unknown as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-4",
         userId: "user-4",
         input: {},
@@ -533,7 +533,7 @@ describe("Task 1: Structured log field completeness", () => {
       const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
       const mod = await import("./generation-refine-prompt");
-      await (mod.generationRefinePrompt as unknown as { run: Function }).run({
+      await (mod.generationRefinePrompt as unknown as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-5",
         userId: "user-5",
         input: {},
@@ -556,7 +556,7 @@ describe("Task 1: Structured log field completeness", () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const mod = await import("./generation-refine-prompt");
-      await (mod.generationRefinePrompt as unknown as { run: Function }).run({
+      await (mod.generationRefinePrompt as unknown as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-5",
         userId: "user-5",
         input: {},
@@ -605,7 +605,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationAssemblePackage } = await import(
         "./generation-assemble-package"
       );
-      await (generationAssemblePackage as { run: Function }).run({
+      await (generationAssemblePackage as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-6",
         userId: "user-6",
         input: {},
@@ -632,7 +632,7 @@ describe("Task 1: Structured log field completeness", () => {
       const { generationAssemblePackage } = await import(
         "./generation-assemble-package"
       );
-      await (generationAssemblePackage as { run: Function }).run({
+      await (generationAssemblePackage as unknown as { run: (...args: unknown[]) => unknown }).run({
         sessionId: "sess-6",
         userId: "user-6",
         input: {},
@@ -680,7 +680,7 @@ describe("Task 1: Structured log field completeness", () => {
       );
 
       const { webhookProcessFal } = await import("./webhook-process-fal");
-      await (webhookProcessFal as { run: Function }).run({
+      await (webhookProcessFal as unknown as { run: (...args: unknown[]) => unknown }).run({
         requestId: "req-1",
         sessionId: "sess-7",
         userId: "user-7",
@@ -714,7 +714,7 @@ describe("Task 1: Structured log field completeness", () => {
       );
 
       const { webhookProcessFal } = await import("./webhook-process-fal");
-      await (webhookProcessFal as { run: Function }).run({
+      await (webhookProcessFal as unknown as { run: (...args: unknown[]) => unknown }).run({
         requestId: "req-2",
         sessionId: "sess-7",
         userId: "user-7",
@@ -744,7 +744,7 @@ describe("Task 1: Structured log field completeness", () => {
       );
 
       const { webhookProcessFal } = await import("./webhook-process-fal");
-      await (webhookProcessFal as { run: Function }).run({
+      await (webhookProcessFal as unknown as { run: (...args: unknown[]) => unknown }).run({
         requestId: "req-3",
         sessionId: "sess-7",
         userId: "user-7",
@@ -1288,7 +1288,7 @@ describe("Task 5: Trigger.dev task tracing", () => {
     const { generationInterpretBrief } = await import(
       "./generation-interpret-brief"
     );
-    const result = await (generationInterpretBrief as { run: Function }).run({
+    const result = await (generationInterpretBrief as unknown as { run: (...args: unknown[]) => unknown }).run({
       sessionId: "sess-err",
       userId: "user-err",
       input: { briefText: "test" },
@@ -1342,7 +1342,7 @@ describe("Task 6: Combined observability verification", () => {
     const { generationAssemblePackage } = await import(
       "./generation-assemble-package"
     );
-    await (generationAssemblePackage as { run: Function }).run({
+    await (generationAssemblePackage as unknown as { run: (...args: unknown[]) => unknown }).run({
       sessionId: "sess-obs",
       userId: "user-obs",
       input: {},
@@ -1379,7 +1379,7 @@ describe("Task 6: Combined observability verification", () => {
     const { generationAssemblePackage } = await import(
       "./generation-assemble-package"
     );
-    await (generationAssemblePackage as { run: Function }).run({
+    await (generationAssemblePackage as unknown as { run: (...args: unknown[]) => unknown }).run({
       sessionId: "sess-obs-2",
       userId: "user-obs-2",
       input: {},

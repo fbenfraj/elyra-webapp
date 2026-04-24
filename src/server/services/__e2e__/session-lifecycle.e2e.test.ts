@@ -108,15 +108,15 @@ describe("Session Lifecycle E2E", () => {
       .where(eq(sessions.id, session.id));
     expect(dbSession.status).toBe("interpreting");
 
-    // interpreting -> generating
-    await updateSessionStatus(session.id, "generating");
+    // interpreting -> generating_directions
+    await updateSessionStatus(session.id, "generating_directions");
     [dbSession] = await testDb
       .select()
       .from(sessions)
       .where(eq(sessions.id, session.id));
-    expect(dbSession.status).toBe("generating");
+    expect(dbSession.status).toBe("generating_directions");
 
-    // generating -> complete
+    // generating_directions -> complete
     await updateSessionStatus(session.id, "complete");
     [dbSession] = await testDb
       .select()
@@ -358,7 +358,7 @@ describe("Payment Flow E2E", () => {
           currency: "eur",
         },
       },
-    } as Stripe.Event;
+    } as unknown as Stripe.Event;
 
     await handleWebhookEvent(fakeEvent);
 
@@ -400,7 +400,7 @@ describe("Payment Flow E2E", () => {
           currency: "eur",
         },
       },
-    } as Stripe.Event;
+    } as unknown as Stripe.Event;
 
     await handleWebhookEvent(fakeEvent);
 
@@ -426,7 +426,7 @@ describe("Payment Flow E2E", () => {
           currency: "eur",
         },
       },
-    } as Stripe.Event;
+    } as unknown as Stripe.Event;
 
     await handleWebhookEvent(fakeEvent);
 
@@ -478,7 +478,7 @@ describe("Payment and Pack Boundary E2E", () => {
           currency: "eur",
         },
       },
-    } as Stripe.Event;
+    } as unknown as Stripe.Event;
 
     // First delivery
     await handleWebhookEvent(fakeEvent);
@@ -511,7 +511,7 @@ describe("Payment and Pack Boundary E2E", () => {
           currency: "eur",
         },
       },
-    } as Stripe.Event;
+    } as unknown as Stripe.Event;
 
     await handleWebhookEvent(fakeEvent);
 
@@ -548,7 +548,7 @@ describe("Payment and Pack Boundary E2E", () => {
           currency: "eur",
         },
       },
-    } as Stripe.Event;
+    } as unknown as Stripe.Event;
 
     await handleWebhookEvent(fakeEvent);
 

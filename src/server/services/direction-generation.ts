@@ -195,7 +195,7 @@ export async function generateDirections(
       },
     };
   } catch {
-    await failSession(sessionId, "generating_directions").catch(() => {});
+    await failSession(sessionId, "generating_directions").catch((err) => console.error("[direction-generation] failSession error:", err));
 
     return {
       ok: false,

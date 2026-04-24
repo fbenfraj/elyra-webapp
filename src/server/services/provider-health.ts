@@ -1,7 +1,6 @@
 import "server-only";
 
 import { db } from "@/server/db";
-import { providerMetrics } from "@/server/db/schema/provider-metrics";
 import { sql } from "drizzle-orm";
 import { getAllStates } from "@/server/services/circuit-breaker";
 import { falAdapter } from "@/server/providers/fal";

@@ -92,9 +92,7 @@ export async function runInterpretation(
     };
   } catch {
     // Update session to failed state
-    await failSession(sessionId, "interpreting").catch(() => {
-      // Best-effort status update on failure
-    });
+    await failSession(sessionId, "interpreting").catch((err) => console.error("[interpretation] failSession error:", err));
 
     return {
       ok: false,

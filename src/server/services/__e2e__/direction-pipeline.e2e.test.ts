@@ -119,7 +119,7 @@ describe("Direction Pipeline E2E", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.output.type).toBe("spec");
+    expect(result.output!.type).toBe("spec");
 
     // Verify session status advanced to generating_directions
     const [dbSession] = await testDb
@@ -168,7 +168,7 @@ describe("Direction Pipeline E2E", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.output.type).toBe("follow_up");
+    expect(result.output!.type).toBe("follow_up");
 
     // Session should revert to pending
     const [dbSession] = await testDb
@@ -201,7 +201,7 @@ describe("Direction Pipeline E2E", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe("CONTENT_POLICY");
+    expect(result.error!.code).toBe("CONTENT_POLICY");
 
     // Session stays in pending
     const [dbSession] = await testDb
@@ -311,7 +311,7 @@ describe("Direction Pipeline E2E", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe("DIRECTION_GENERATION_FAILED");
+    expect(result.error!.code).toBe("DIRECTION_GENERATION_FAILED");
 
     const [dbSession] = await testDb
       .select({ status: sessions.status })

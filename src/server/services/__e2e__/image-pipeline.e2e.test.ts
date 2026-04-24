@@ -109,7 +109,7 @@ describe("Image Pipeline E2E", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.output.imageCount).toBeGreaterThan(0);
+    expect(result.output!.imageCount).toBeGreaterThan(0);
 
     // Task 4.5: Verify generation_attempts records have required fields
     const attempts = await testDb
@@ -180,7 +180,7 @@ describe("Image Pipeline E2E", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.output.evaluatedCount).toBeGreaterThan(0);
+    expect(result.output!.evaluatedCount).toBeGreaterThan(0);
 
     // Verify evaluation data stored on attempt
     const [attempt] = await testDb
@@ -304,7 +304,7 @@ describe("Image Pipeline E2E", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     // Should fail due to invalid status (not paid)
-    expect(["INVALID_STATUS", "UNPAID"]).toContain(result.error.code);
+    expect(["INVALID_STATUS", "UNPAID"]).toContain(result.error!.code);
   });
 
   it("blocks image generation when session has no selected direction", async () => {
@@ -320,7 +320,7 @@ describe("Image Pipeline E2E", () => {
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error.code).toBe("NO_DIRECTION");
+    expect(result.error!.code).toBe("NO_DIRECTION");
   });
 
   it("tracks status transitions: paid → generating_images → evaluating", async () => {

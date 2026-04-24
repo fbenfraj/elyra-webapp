@@ -68,7 +68,7 @@ describe("Provider Fallback E2E", () => {
 
   it("falls back to secondary provider when primary adapter throws", async () => {
     const { sessionId } = await createFullSession(testUserId, "paid");
-    let callCount = { primary: 0, fallback: 0 };
+    const callCount = { primary: 0, fallback: 0 };
 
     const result = await executeWithFallback(
       ["primary-provider", "fallback-provider"] as unknown as readonly string[],
@@ -144,8 +144,8 @@ describe("Provider Fallback E2E", () => {
     expect(canExecute(providerKey)).toBe(false);
 
     // Subsequent calls skip the provider entirely
-    let providerCalled = false;
-    let fallbackCalled = false;
+    const providerCalled = false;
+    const fallbackCalled = false;
 
     const fallbackKey = `fallback-${crypto.randomUUID()}`;
 

@@ -5,16 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { AssetPreview } from "@/features/generation/components/AssetPreview";
 import { DownloadActions } from "@/features/generation/components/DownloadActions";
 
-type Deliverable = {
-  id: string;
-  format: string;
-  url: string;
-  fileSizeBytes: number;
-  width: number | null;
-  height: number | null;
-  mimeType: string;
-};
-
 type PackageRevealProps = {
   sessionId: string;
   briefText: string;

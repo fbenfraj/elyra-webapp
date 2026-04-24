@@ -36,16 +36,14 @@ export function DownloadActions({ sessionId }: DownloadActionsProps) {
 
   const createShareLink = useMutation(
     trpc.package.createShareLink.mutationOptions({
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         setShareUrl(data.shareUrl);
-        navigator.clipboard
-          .writeText(data.shareUrl)
-          .then(() => {
-            toast.success("Link copied to clipboard", { duration: 4000 });
-          })
-          .catch(() => {
-            toast.success("Share link created", { duration: 4000 });
-          });
+        try {
+          await navigator.clipboard.writeText(data.shareUrl);
+          toast.success("Link copied to clipboard", { duration: 4000 });
+        } catch {
+          toast.success("Share link created", { duration: 4000 });
+        }
       },
       onError: () => {
         toast.error("Could not create share link. Try again.", {

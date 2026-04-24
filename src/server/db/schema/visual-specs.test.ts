@@ -1,5 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { getTableColumns, getTableName } from "drizzle-orm";
+
+vi.mock("server-only", () => ({}));
+
 import { visualSpecs } from "./visual-specs";
 
 describe("visual_specs schema", () => {
