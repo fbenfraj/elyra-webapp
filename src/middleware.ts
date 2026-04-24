@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/", "/pricing", "/login", "/signup", "/callback"];
+const PUBLIC_ROUTES = ["/pricing", "/login", "/signup", "/callback"];
 
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
@@ -55,8 +55,8 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
-  // Redirect authenticated users away from auth pages to dashboard
-  if (user && (pathname === "/login" || pathname === "/signup")) {
+  // Redirect authenticated users away from auth pages and landing to dashboard
+  if (user && (pathname === "/" || pathname === "/login" || pathname === "/signup")) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     const redirectResponse = NextResponse.redirect(dashboardUrl);
