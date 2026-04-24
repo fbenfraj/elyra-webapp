@@ -28,3 +28,8 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+.agents
+.cursor
+.claude
+.continue
