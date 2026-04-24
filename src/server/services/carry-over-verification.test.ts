@@ -66,6 +66,55 @@ vi.mock("@/server/db/schema/visual-specs", () => ({
 
 vi.mock("@/config/evaluation", () => ({ MIN_PASS_SCORE: 0.7 }));
 
+// ─── Task 2.6: Client components should not import from @/server/ ────────────
+
+describe("Client/server boundary enforcement", () => {
+  const SRC_DIR = path.resolve(__dirname, "../..");
+
+  function findTsFilesRecursive(dir: string): string[] {
+    if (!fs.existsSync(dir)) return [];
+    const results: string[] = [];
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory() && entry.name !== "server" && entry.name !== "node_modules") {
+        results.push(...findTsFilesRecursive(fullPath));
+      } else if (entry.name.endsWith(".tsx") || (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts"))) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  function isClientFile(filePath: string): boolean {
+    const content = fs.readFileSync(filePath, "utf-8");
+    return content.includes('"use client"') || content.includes("'use client'");
+  }
+
+  it("no client component imports runtime values from @/server/", () => {
+    const allFiles = findTsFilesRecursive(SRC_DIR);
+    const violations: string[] = [];
+
+    for (const filePath of allFiles) {
+      if (!isClientFile(filePath)) continue;
+      const content = fs.readFileSync(filePath, "utf-8");
+      // Match imports from @/server/ but allow type-only imports (erased at build time)
+      const lines = content.split("\n");
+      for (const line of lines) {
+        if (
+          line.match(/from\s+["']@\/server\//) &&
+          !line.match(/import\s+type\s/) &&
+          !line.match(/import\s+\{\s*type\s/)
+        ) {
+          violations.push(`${path.relative(SRC_DIR, filePath)}: ${line.trim()}`);
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
+});
+
 // ─── Task 5.1: No service uses .triggerAndWait() ─────────────────────────────
 
 describe("Async contract enforcement", () => {
