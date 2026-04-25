@@ -21,6 +21,7 @@ export const sessions = pgTable(
     regenCount: integer("regen_count").notNull().default(0),
     maxRegens: integer("max_regens").notNull().default(3),
     shareId: text("share_id"),
+    spotifyArtistUrl: text("spotify_artist_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
