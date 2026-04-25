@@ -18,7 +18,9 @@ import {
   FINAL_IMAGE_COUNT,
   FINAL_IMAGE_WIDTH,
   FINAL_IMAGE_HEIGHT,
+  getKontextReferencePrefix,
 } from "@/config/providers";
+import { getSessionReferenceUrls } from "@/server/services/reference-images";
 import type { TaskResult } from "@/types/task";
 import type { EvaluationResult } from "@/lib/schemas/evaluation";
 
@@ -212,25 +214,64 @@ export async function generateImages(
 
     // Step 5: Generate batch of images
     const basePrompt = promptOverride ?? buildPrompt(direction);
+
+    // Fetch reference image URLs for Kontext Multi conditioning
+    const referenceUrls = await getSessionReferenceUrls(sessionId);
+
     const imageOptions = {
       width: FINAL_IMAGE_WIDTH,
       height: FINAL_IMAGE_HEIGHT,
       model: FAL_FINAL_MODEL,
       numImages: 1,
+      referenceImages: referenceUrls.length > 0 ? referenceUrls : undefined,
     };
 
     const results = await Promise.allSettled(
       Array.from({ length: FINAL_IMAGE_COUNT }, async (_, i) => {
-        const prompt =
+        const rawPrompt =
           i === 0
             ? basePrompt
             : `${basePrompt} Variation ${i + 1}, different composition and angle.`;
 
-        const genResult = await executeWithFallback(
-          FALLBACK_CHAINS.imageGeneration.final,
-          async () => getImageAdapter("final").generate(prompt, imageOptions),
-          { sessionId }
-        );
+        // Prepend Kontext reference prefix when references are available
+        const prompt =
+          referenceUrls.length > 0
+            ? getKontextReferencePrefix(referenceUrls.length) + rawPrompt
+            : rawPrompt;
+
+        let genResult;
+        try {
+          genResult = await executeWithFallback(
+            FALLBACK_CHAINS.imageGeneration.final,
+            async () => getImageAdapter("final").generate(prompt, imageOptions),
+            { sessionId }
+          );
+        } catch (error) {
+          // If Kontext Multi fails and we had references, retry without them
+          if (referenceUrls.length > 0) {
+            console.warn(
+              JSON.stringify({
+                event: "reference_fallback",
+                sessionId,
+                reason: "kontext_failed",
+                detail: error instanceof Error ? error.message : String(error),
+              })
+            );
+            genResult = await executeWithFallback(
+              FALLBACK_CHAINS.imageGeneration.final,
+              async () =>
+                getImageAdapter("final").generate(rawPrompt, {
+                  width: FINAL_IMAGE_WIDTH,
+                  height: FINAL_IMAGE_HEIGHT,
+                  model: FAL_FINAL_MODEL,
+                  numImages: 1,
+                }),
+              { sessionId }
+            );
+          } else {
+            throw error;
+          }
+        }
         totalCostCents += genResult.costCents;
 
         // Generate a temporary ID for the R2 key
