@@ -688,7 +688,7 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
+    <div className="flex flex-1 flex-col">
       <BriefInput
         onSubmit={(text) => createSession.mutate({ text })}
         isSubmitting={createSession.isPending}
