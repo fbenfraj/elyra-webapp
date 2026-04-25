@@ -86,8 +86,8 @@ export async function runInterpretation(
 
     // Step 7: Fetch and store Spotify reference images from user-level setting
     const userSettings = await getUserSettings(userId);
-    if (userSettings?.spotifyArtistId) {
-      const artistUrl = `https://open.spotify.com/artist/${userSettings.spotifyArtistId}`;
+    if (userSettings?.artistId) {
+      const artistUrl = `https://open.spotify.com/artist/${userSettings.artistId}`;
       try {
         await fetchAndStoreReferences(sessionId, artistUrl);
       } catch (error) {

@@ -58,13 +58,13 @@ export function SpotifyArtistSettings() {
             <div className="h-3 w-20 animate-pulse rounded bg-zinc-800" />
           </div>
         </div>
-      ) : settings?.spotifyArtistId ? (
+      ) : settings?.artistId ? (
         <div className="flex items-center gap-3">
-          {settings.spotifyArtistImageUrl ? (
+          {settings.artistImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={settings.spotifyArtistImageUrl}
-              alt={settings.spotifyArtistName ?? "Artist"}
+              src={settings.artistImageUrl}
+              alt={settings.artistName ?? "Artist"}
               width={48}
               height={48}
               className="size-12 shrink-0 rounded-full object-cover"
@@ -76,7 +76,7 @@ export function SpotifyArtistSettings() {
           )}
           <div className="flex-1 min-w-0">
             <p className="truncate text-sm font-medium text-zinc-100">
-              {settings.spotifyArtistName}
+              {settings.artistName}
             </p>
           </div>
           <Button
@@ -95,7 +95,7 @@ export function SpotifyArtistSettings() {
 
       <div>
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
-          {settings?.spotifyArtistId ? "Change artist" : "Search artist"}
+          {settings?.artistId ? "Change artist" : "Search artist"}
         </p>
         <SpotifyArtistSearch onSelect={handleSelect} />
       </div>
