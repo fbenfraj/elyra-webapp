@@ -3,7 +3,8 @@ import "server-only";
 import type { TaskResult } from "@/types/task";
 import type { VisualSpec } from "@/lib/schemas/visual-spec";
 import { moderateBrief, interpretBrief } from "@/server/providers/openai";
-import { updateSessionStatus, failSession } from "@/server/services/session";
+import { updateSessionStatus, failSession, getSessionById } from "@/server/services/session";
+import { fetchAndStoreReferences } from "@/server/services/reference-images";
 import { executeWithFallback } from "@/server/services/provider-executor";
 import { FALLBACK_CHAINS } from "@/config/providers";
 import { storeVisualSpec } from "@/server/services/visual-spec-store";
@@ -81,6 +82,23 @@ export async function runInterpretation(
 
     // Step 6: Update session status to 'generating_directions'
     await updateSessionStatus(sessionId, "generating_directions");
+
+    // Step 7: Fetch and store Spotify reference images (non-blocking on failure)
+    const session = await getSessionById(sessionId);
+    if (session?.spotifyArtistUrl) {
+      try {
+        await fetchAndStoreReferences(sessionId, session.spotifyArtistUrl);
+      } catch (error) {
+        console.warn(
+          JSON.stringify({
+            event: "reference_fallback",
+            sessionId,
+            reason: "spotify_fetch_failed",
+            detail: error instanceof Error ? error.message : String(error),
+          })
+        );
+      }
+    }
 
     return {
       ok: true,
