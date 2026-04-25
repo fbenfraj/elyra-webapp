@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getAssetTypeConfig } from "@/config/asset-types";
+import type { AssetTypeId } from "@/config/asset-types";
 import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
 import { generationJobs } from "@/server/db/schema/generation-jobs";
@@ -55,14 +57,14 @@ type StoredDirectionData = {
   directions: StoredDirection[];
 };
 
-function buildPrompt(direction: StoredDirection): string {
+function buildPrompt(direction: StoredDirection, promptSuffix: string): string {
   const palette = direction.colorPalette.join(", ");
   return [
     direction.description,
     `Mood: ${direction.moodLabel}.`,
     `Color palette: ${palette}.`,
     `Tags: ${direction.tags.join(", ")}.`,
-    "Album cover art, square format, high quality, no text, no words, no letters, no watermarks, no logos.",
+    promptSuffix,
   ].join(" ");
 }
 
@@ -86,6 +88,7 @@ export async function generateImages(
         status: sessions.status,
         selectedDirectionId: sessions.selectedDirectionId,
         selectedGenerationJobId: sessions.selectedGenerationJobId,
+        assetType: sessions.assetType,
       })
       .from(sessions)
       .where(eq(sessions.id, sessionId));
@@ -97,6 +100,10 @@ export async function generateImages(
         meta: { costCents: 0, durationMs: Date.now() - start },
       };
     }
+
+    const assetConfig = getAssetTypeConfig(
+      (session.assetType ?? "release_artwork") as AssetTypeId
+    );
 
     if (
       session.status !== "paid" &&
@@ -213,14 +220,14 @@ export async function generateImages(
     }
 
     // Step 5: Generate batch of images
-    const basePrompt = promptOverride ?? buildPrompt(direction);
+    const basePrompt = promptOverride ?? buildPrompt(direction, assetConfig.promptSuffix);
 
     // Fetch reference image URLs for Kontext Multi conditioning
     const referenceUrls = await getSessionReferenceUrls(sessionId);
 
     const imageOptions = {
-      width: FINAL_IMAGE_WIDTH,
-      height: FINAL_IMAGE_HEIGHT,
+      width: assetConfig.width,
+      height: assetConfig.height,
       model: FAL_FINAL_MODEL,
       numImages: 1,
       referenceImages: referenceUrls.length > 0 ? referenceUrls : undefined,
@@ -261,8 +268,8 @@ export async function generateImages(
               FALLBACK_CHAINS.imageGeneration.final,
               async () =>
                 getImageAdapter("final").generate(rawPrompt, {
-                  width: FINAL_IMAGE_WIDTH,
-                  height: FINAL_IMAGE_HEIGHT,
+                  width: assetConfig.width,
+                  height: assetConfig.height,
                   model: FAL_FINAL_MODEL,
                   numImages: 1,
                 }),
