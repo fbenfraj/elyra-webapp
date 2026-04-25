@@ -29,6 +29,7 @@ type DirectionRound = {
 
 type PageState =
   | { phase: "input" }
+  | { phase: "resuming"; sessionId: string }
   | { phase: "processing"; sessionId: string; briefText: string }
   | {
       phase: "follow_up";
@@ -120,6 +121,12 @@ function getInitialStateFromParams(searchParams: URLSearchParams): PageState {
       selectedDirectionId: "",
       showPaywall: true,
     };
+  }
+
+  // Resume an existing session from the dashboard
+  const resumeId = searchParams.get("resume");
+  if (resumeId) {
+    return { phase: "resuming", sessionId: resumeId };
   }
 
   return { phase: "input" };
@@ -224,7 +231,7 @@ export default function GeneratePage() {
   const refineGeneration = useMutation(
     trpc.generation.refine.mutationOptions({
       onSuccess: (result) => {
-        if (!("sessionId" in state)) return;
+        if (state.phase === "input" || state.phase === "error" || state.phase === "resuming") return;
 
         if (!result.ok) {
           setState({
@@ -256,7 +263,7 @@ export default function GeneratePage() {
         startDirections.mutate({ sessionId: state.sessionId });
       },
       onError: () => {
-        if ("sessionId" in state) {
+        if (state.phase !== "input" && state.phase !== "error" && state.phase !== "resuming") {
           setState({
             phase: "error",
             briefText: state.briefText,
@@ -304,6 +311,90 @@ export default function GeneratePage() {
       window.history.replaceState({}, "", url.pathname);
     }
   }, [searchParams]);
+
+  // Resume an existing session: fetch its status and transition to the right phase
+  useEffect(() => {
+    if (state.phase !== "resuming") return;
+    const sessionId = state.sessionId;
+
+    async function resume() {
+      try {
+        const status = await trpcClient.generation.getStatus.query({ sessionId });
+        const briefText = status.briefText ?? "";
+        const sessionStatus = status.status as string;
+
+        // Map DB status → page phase
+        if (sessionStatus === "pending") {
+          setState({ phase: "input" });
+        } else if (sessionStatus === "interpreting") {
+          setState({ phase: "processing", sessionId, briefText });
+        } else if (sessionStatus === "generating_directions") {
+          setState({ phase: "generating_directions", sessionId, briefText });
+        } else if (sessionStatus === "selecting" || sessionStatus === "complete") {
+          // Directions are ready — fetch them
+          const dirData = await trpcClient.generation.getDirections.query({ sessionId });
+          if (dirData.directions && dirData.generationJobId) {
+            setState({
+              phase: "directions_ready",
+              sessionId,
+              briefText,
+              directions: dirData.directions,
+              generationJobId: dirData.generationJobId,
+            });
+          } else {
+            setState({ phase: "generating_directions", sessionId, briefText });
+          }
+        } else if (sessionStatus === "direction_selected") {
+          setState({
+            phase: "direction_selected",
+            sessionId,
+            briefText,
+            directions: [],
+            generationJobId: "",
+            selectedDirectionId: "",
+            showPaywall: true,
+          });
+        } else if (sessionStatus === "paid") {
+          setState({
+            phase: "paid",
+            sessionId,
+            briefText,
+            directions: [],
+            generationJobId: "",
+            selectedDirectionId: "",
+          });
+        } else if (sessionStatus === "generating_images" || sessionStatus === "evaluating") {
+          setState({
+            phase: "generating_images",
+            sessionId,
+            briefText,
+            heroImageUrl: null,
+          });
+        } else if (sessionStatus === "packaging") {
+          setState({ phase: "packaging", sessionId, briefText });
+        } else if (sessionStatus === "delivered") {
+          setState({ phase: "delivered", sessionId, briefText });
+        } else if (sessionStatus === "failed") {
+          setState({
+            phase: "error",
+            briefText,
+            message: "This session failed. You can start a new one.",
+          });
+        } else {
+          setState({ phase: "input" });
+        }
+      } catch {
+        setState({
+          phase: "error",
+          briefText: "",
+          message: "Could not load session. Try again.",
+        });
+      }
+    }
+
+    resume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase === "resuming" ? state.sessionId : null]);
 
   // Track screen enter/exit for phases with a sessionId
   const currentPhase = state.phase;
@@ -375,7 +466,7 @@ export default function GeneratePage() {
 
   const handleRecoverySubmit = useCallback(
     (data: { selectedPills: string[]; refinementText: string }) => {
-      if (!("sessionId" in state)) return;
+      if (state.phase === "input" || state.phase === "error" || state.phase === "resuming") return;
       void trpcClient.feedback.captureEvent.mutate({
         sessionId: state.sessionId,
         action: "brief_refined",
@@ -400,6 +491,14 @@ export default function GeneratePage() {
 
   // Gallery mode: 3+ rounds of previous directions
   const isGalleryMode = previousRounds.length >= 3;
+
+  if (state.phase === "resuming") {
+    return (
+      <div className="flex min-h-[calc(100vh-48px)] items-center justify-center">
+        <p className="text-sm text-[var(--foreground-muted)]">Loading session...</p>
+      </div>
+    );
+  }
 
   if (state.phase === "follow_up") {
     return (

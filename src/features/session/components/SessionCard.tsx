@@ -67,8 +67,10 @@ export function SessionCard({
       onClick={() => {
         if (selectMode) {
           onToggleSelect?.();
-        } else {
+        } else if (status === "delivered") {
           router.push(`/package/${id}`);
+        } else {
+          router.push(`/generate?resume=${id}`);
         }
       }}
       className={`flex w-full items-center gap-4 rounded-lg p-3 text-left transition-colors duration-[var(--duration-fast)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${

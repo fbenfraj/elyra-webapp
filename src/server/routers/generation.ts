@@ -65,6 +65,7 @@ export const generationRouter = createTRPCRouter({
         .select({
           status: sessions.status,
           failedStage: sessions.failedStage,
+          briefText: sessions.briefText,
         })
         .from(sessions)
         .where(
@@ -75,7 +76,7 @@ export const generationRouter = createTRPCRouter({
         );
 
       if (!session) {
-        return { status: "not_found", stepLabel: "Session not found", failedStage: null, canRetry: false };
+        return { status: "not_found", stepLabel: "Session not found", failedStage: null, canRetry: false, briefText: null };
       }
 
       const stepLabelMap: Record<string, string> = {
@@ -102,6 +103,7 @@ export const generationRouter = createTRPCRouter({
         stepLabel: stepLabelMap[session.status] ?? "Processing...",
         failedStage: session.failedStage,
         canRetry,
+        briefText: session.briefText,
       };
     }),
 

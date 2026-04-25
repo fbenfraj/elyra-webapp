@@ -60,7 +60,7 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
 export async function signInWithGoogle(): Promise<void> {
   const supabase = await createClient();
   const headerStore = await headers();
-  const origin = headerStore.get("origin") ?? "http://localhost:3000";
+  const origin = headerStore.get("origin") ?? "http://localhost:3847";
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
