@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useTRPC } from "@/lib/trpc/client";
 import { useMutation } from "@tanstack/react-query";
 import { BriefInput } from "@/features/generation/components/BriefInput";
+import type { AssetTypeId } from "@/config/asset-types";
 
 export default function GeneratePage() {
   const router = useRouter();
@@ -41,11 +42,19 @@ export default function GeneratePage() {
     return null;
   }
 
+  // Check for companion pre-fill from query params
+  const companionType = searchParams.get("type") as AssetTypeId | null;
+  const companionBrief = searchParams.get("brief");
+
   return (
     <div className="flex flex-1 flex-col">
       <BriefInput
-        onSubmit={(text) => createSession.mutate({ text })}
+        onSubmit={(assetType, text) =>
+          createSession.mutate({ assetType, text })
+        }
         isSubmitting={createSession.isPending}
+        defaultAssetType={companionType ?? undefined}
+        defaultText={companionBrief ?? undefined}
       />
     </div>
   );

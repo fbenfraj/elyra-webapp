@@ -8,6 +8,8 @@ import {
   AnimatedDashboardContainer,
   AnimatedDashboardItem,
 } from "@/features/session/components/DashboardAnimations";
+import { ASSET_TYPES, ASSET_TYPE_IDS } from "@/config/asset-types";
+import type { AssetTypeId } from "@/config/asset-types";
 
 const MIN_HEIGHT = 120;
 const MAX_HEIGHT = 200;
@@ -15,21 +17,27 @@ const MAX_HEIGHT = 200;
 export function BriefInput({
   onSubmit,
   isSubmitting,
+  defaultAssetType,
+  defaultText,
 }: {
-  onSubmit: (text: string) => void;
+  onSubmit: (assetType: AssetTypeId, text?: string) => void;
   isSubmitting: boolean;
+  defaultAssetType?: AssetTypeId;
+  defaultText?: string;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(defaultText ?? "");
+  const [selectedType, setSelectedType] = useState<AssetTypeId>(
+    defaultAssetType ?? "release_artwork"
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const trimmedText = text.trim();
-  const canSubmit = trimmedText.length > 0 && !isSubmitting;
+  const config = ASSET_TYPES[selectedType];
 
   const handleSubmit = useCallback(() => {
-    if (trimmedText.length > 0 && !isSubmitting) {
-      onSubmit(trimmedText);
-    }
-  }, [trimmedText, isSubmitting, onSubmit]);
+    if (isSubmitting) return;
+    const trimmed = text.trim();
+    onSubmit(selectedType, trimmed.length > 0 ? trimmed : undefined);
+  }, [text, isSubmitting, onSubmit, selectedType]);
 
   const handleInput = useCallback(() => {
     const textarea = textareaRef.current;
@@ -106,6 +114,30 @@ export function BriefInput({
         </div>
       </AnimatedDashboardItem>
 
+      {/* Asset type chips */}
+      <AnimatedDashboardItem>
+        <div className="flex flex-wrap justify-center gap-2 px-4">
+          {ASSET_TYPE_IDS.map((typeId) => {
+            const typeConfig = ASSET_TYPES[typeId];
+            const isSelected = typeId === selectedType;
+            return (
+              <button
+                key={typeId}
+                type="button"
+                onClick={() => setSelectedType(typeId)}
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
+                  isSelected
+                    ? "border-white bg-white text-[#09090b]"
+                    : "border-[var(--border)] bg-[var(--background-elevated)]/60 text-[var(--foreground-muted)] hover:border-[#52525b] hover:text-[var(--foreground)]"
+                }`}
+              >
+                {typeConfig.label}
+              </button>
+            );
+          })}
+        </div>
+      </AnimatedDashboardItem>
+
       {/* Input area */}
       <AnimatedDashboardItem className="w-full">
         <div className="mx-auto w-full max-w-5xl px-4">
@@ -118,7 +150,7 @@ export function BriefInput({
             }}
             onKeyDown={handleKeyDown}
             disabled={isSubmitting}
-            placeholder="dark cinematic trap, nighttime city, moody blue tones..."
+            placeholder={config.placeholder}
             rows={5}
             className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background-elevated)]/80 px-5 py-4 text-lg leading-relaxed text-[var(--foreground)] backdrop-blur-sm placeholder:text-[var(--foreground-subtle)] focus:border-[#52525b] focus:shadow-[0_0_0_3px_rgba(63,63,70,0.3)] focus:outline-none disabled:opacity-50"
             style={{
@@ -127,14 +159,18 @@ export function BriefInput({
               overflowY: "hidden",
             }}
           />
+          <p className="mt-2 text-center text-xs text-[var(--foreground-subtle)]">
+            Optional — we'll use your artist profile
+          </p>
           <div className="mt-4 flex w-full justify-center">
             <motion.button
               type="button"
-              disabled={!canSubmit}
+              disabled={isSubmitting}
               onClick={handleSubmit}
-              whileHover={canSubmit ? { scale: 1.03 } : undefined}
-              whileTap={canSubmit ? { scale: 0.97 } : undefined}
+              whileHover={!isSubmitting ? { scale: 1.03 } : undefined}
+              whileTap={!isSubmitting ? { scale: 0.97 } : undefined}
               className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-white px-8 py-3 text-base font-semibold text-[#09090b] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)] disabled:opacity-40 disabled:shadow-none"
+              title="Cmd + Enter to submit"
             >
               {isSubmitting ? (
                 <>
@@ -149,13 +185,6 @@ export function BriefInput({
               )}
             </motion.button>
           </div>
-          <p className="mt-3 text-center text-xs text-[var(--foreground-subtle)]">
-            Press{" "}
-            <kbd className="rounded border border-[var(--border)] bg-[var(--background-overlay)] px-1.5 py-0.5 font-mono text-[10px]">
-              Cmd + Enter
-            </kbd>{" "}
-            to submit
-          </p>
         </div>
       </AnimatedDashboardItem>
     </AnimatedDashboardContainer>
