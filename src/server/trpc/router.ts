@@ -8,6 +8,7 @@ import { packageRouter } from "@/server/routers/package";
 import { feedbackRouter } from "@/server/routers/feedback";
 import { operatorRouter } from "@/server/routers/operator";
 import { libraryRouter } from "@/server/routers/library";
+import { userRouter } from "@/server/routers/user";
 
 export const appRouter = createTRPCRouter({
   session: sessionRouter,
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   feedback: feedbackRouter,
   operator: operatorRouter,
   library: libraryRouter,
+  user: userRouter,
 });
 
 export type AppRouter = typeof appRouter;
