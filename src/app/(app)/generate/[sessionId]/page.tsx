@@ -87,6 +87,8 @@ type WorkspaceState =
   | {
       phase: "delivered";
       briefText: string;
+      assetType: string;
+      userBrief: string | null;
     }
   | { phase: "error"; briefText: string; message: string };
 
@@ -438,7 +440,12 @@ export default function GenerateWorkspacePage() {
         } else if (status === "packaging") {
           setState({ phase: "packaging", briefText });
         } else if (status === "delivered") {
-          setState({ phase: "delivered", briefText });
+          setState({
+            phase: "delivered",
+            briefText,
+            assetType: session.assetType ?? "release_artwork",
+            userBrief: session.userBrief ?? null,
+          });
         } else if (status === "failed") {
           setState({
             phase: "error",
@@ -757,10 +764,12 @@ export default function GenerateWorkspacePage() {
       <PackagingPhase
         sessionId={sessionId}
         briefText={state.briefText}
-        onDelivered={() =>
+        onDelivered={(assetType, userBrief) =>
           setState({
             phase: "delivered",
             briefText: state.briefText,
+            assetType,
+            userBrief,
           })
         }
       />
@@ -769,7 +778,12 @@ export default function GenerateWorkspacePage() {
 
   if (state.phase === "delivered") {
     return (
-      <PackageReveal sessionId={sessionId} briefText={state.briefText} />
+      <PackageReveal
+        sessionId={sessionId}
+        briefText={state.briefText}
+        assetType={state.assetType}
+        userBrief={state.userBrief}
+      />
     );
   }
 
@@ -1418,7 +1432,7 @@ function PackagingPhase({
 }: {
   sessionId: string;
   briefText: string;
-  onDelivered: () => void;
+  onDelivered: (assetType: string, userBrief: string | null) => void;
 }) {
   const trpc = useTRPC();
   const { timeoutLevel, reset: resetTimeout } = useGenerationStatus({
@@ -1438,6 +1452,13 @@ function PackagingPhase({
     )
   );
 
+  const { data: fullSession } = useQuery(
+    trpc.generation.getFullSession.queryOptions(
+      { sessionId },
+      { enabled: statusData?.status === "delivered" }
+    )
+  );
+
   const retryMutation = useMutation(
     trpc.generation.retry.mutationOptions({
       onSuccess: () => {
@@ -1447,10 +1468,10 @@ function PackagingPhase({
   );
 
   useEffect(() => {
-    if (statusData?.status === "delivered") {
-      onDelivered();
+    if (statusData?.status === "delivered" && fullSession) {
+      onDelivered(fullSession.assetType ?? "release_artwork", fullSession.userBrief ?? null);
     }
-  }, [statusData?.status, onDelivered]);
+  }, [statusData?.status, fullSession, onDelivered]);
 
   if (statusData?.status === "failed" && statusData.canRetry) {
     return (

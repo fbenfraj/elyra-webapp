@@ -4,13 +4,17 @@ import { useTRPC } from "@/lib/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { AssetPreview } from "@/features/generation/components/AssetPreview";
 import { DownloadActions } from "@/features/generation/components/DownloadActions";
+import { CompanionSuggestions } from "@/features/generation/components/CompanionSuggestions";
+import type { AssetTypeId } from "@/config/asset-types";
 
 type PackageRevealProps = {
   sessionId: string;
   briefText: string;
+  assetType?: string;
+  userBrief?: string | null;
 };
 
-export function PackageReveal({ sessionId, briefText }: PackageRevealProps) {
+export function PackageReveal({ sessionId, briefText, assetType, userBrief }: PackageRevealProps) {
   const trpc = useTRPC();
   const { data, isLoading } = useQuery(
     trpc.package.get.queryOptions({ sessionId })
@@ -127,6 +131,19 @@ export function PackageReveal({ sessionId, briefText }: PackageRevealProps) {
           <DownloadActions sessionId={sessionId} />
         </div>
       </div>
+
+      {/* Companion asset suggestions */}
+      {assetType && (
+        <div
+          className="animate-reveal mt-[var(--space-8)]"
+          style={{ "--reveal-delay": "900ms" } as React.CSSProperties}
+        >
+          <CompanionSuggestions
+            currentAssetType={assetType as AssetTypeId}
+            userBrief={userBrief ?? null}
+          />
+        </div>
+      )}
     </div>
   );
 }

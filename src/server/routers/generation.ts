@@ -121,6 +121,8 @@ export const generationRouter = createTRPCRouter({
           failedStage: sessions.failedStage,
           selectedDirectionId: sessions.selectedDirectionId,
           selectedGenerationJobId: sessions.selectedGenerationJobId,
+          assetType: sessions.assetType,
+          userBrief: sessions.userBrief,
         })
         .from(sessions)
         .where(
@@ -168,6 +170,8 @@ export const generationRouter = createTRPCRouter({
         generationJobId: directions?.generationJobId ?? null,
         deliverables,
         isPremium: premium,
+        assetType: session.assetType,
+        userBrief: session.userBrief,
       };
     }),
 
