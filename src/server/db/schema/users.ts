@@ -1,5 +1,7 @@
+// apps/web/src/server/db/schema/users.ts
 import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { spotifyArtists } from "./spotify-artists";
 
 export const users = pgTable("users", {
   id: text("id")
@@ -13,7 +15,11 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  // Legacy columns — kept for safe migration, read from artistId instead
   spotifyArtistId: text("spotify_artist_id"),
   spotifyArtistName: text("spotify_artist_name"),
   spotifyArtistImageUrl: text("spotify_artist_image_url"),
+  // New columns
+  artistId: text("artist_id").references(() => spotifyArtists.id),
+  onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
 });
