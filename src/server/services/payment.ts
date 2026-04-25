@@ -7,6 +7,7 @@ import { sessions } from "@/server/db/schema/sessions";
 import { and, eq, sql } from "drizzle-orm";
 import { PACK_PRICE_CENTS, PACK_CURRENCY, PACK_REGEN_LIMIT } from "@/config/pricing";
 import { withIdempotency } from "@/server/services/idempotency";
+import { promoteUserToPremium, isPremiumUser } from "@/server/services/user";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -97,6 +98,9 @@ export async function handleWebhookEvent(event: Stripe.Event) {
         `Cannot transition session "${sessionId}" to paid: not in direction_selected state`
       );
     }
+
+    // Promote user to premium on first payment (idempotent — no-ops if already premium)
+    await promoteUserToPremium(userId);
   });
 }
 
@@ -122,6 +126,17 @@ export async function checkPackBoundary(sessionId: string, userId: string) {
 
   if (!session || session.userId !== userId) {
     throw new Error("Session not found");
+  }
+
+  // Premium users always have full access
+  const premium = await isPremiumUser(userId);
+  if (premium) {
+    return {
+      isPaid: true,
+      canRegenerate: true,
+      regenCount: session.regenCount,
+      maxRegens: session.maxRegens,
+    };
   }
 
   const paidStatuses = ["paid", "generating_images", "evaluating", "selecting", "packaging", "delivered"];

@@ -33,6 +33,7 @@ export const generationAttempts = pgTable(
     evaluationScore: real("evaluation_score"),
     evaluationFeedback: jsonb("evaluation_feedback"),
     selected: boolean("selected").notNull().default(false),
+    favorited: boolean("favorited").notNull().default(false),
     batchNumber: integer("batch_number").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

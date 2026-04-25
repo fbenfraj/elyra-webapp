@@ -8,6 +8,7 @@ import {
   MAX_SESSION_COST_CENTS,
   MAX_USER_DAILY_COST_CENTS,
 } from "@/config/limits";
+import { isPremiumUser } from "@/server/services/user";
 
 export async function getSessionCost(sessionId: string): Promise<number> {
   const result = await db
@@ -20,12 +21,23 @@ export async function getSessionCost(sessionId: string): Promise<number> {
   return Number(result[0]?.total ?? 0);
 }
 
-export async function checkSessionBudget(sessionId: string): Promise<{
+export async function checkSessionBudget(
+  sessionId: string,
+  userId?: string
+): Promise<{
   allowed: boolean;
   currentCostCents: number;
   limitCents: number;
 }> {
   try {
+    // Premium users have no session budget limit
+    if (userId) {
+      const premium = await isPremiumUser(userId);
+      if (premium) {
+        return { allowed: true, currentCostCents: 0, limitCents: MAX_SESSION_COST_CENTS };
+      }
+    }
+
     const currentCostCents = await getSessionCost(sessionId);
     return {
       allowed: currentCostCents < MAX_SESSION_COST_CENTS,
@@ -33,7 +45,6 @@ export async function checkSessionBudget(sessionId: string): Promise<{
       limitCents: MAX_SESSION_COST_CENTS,
     };
   } catch (error) {
-    // Fail-open: allow generation if budget check fails
     console.error(
       JSON.stringify({
         event: "budget_check_failed",
@@ -73,6 +84,12 @@ export async function checkUserBudget(userId: string): Promise<{
   limitCents: number;
 }> {
   try {
+    // Premium users have no daily budget limit
+    const premium = await isPremiumUser(userId);
+    if (premium) {
+      return { allowed: true, currentCostCents: 0, limitCents: MAX_USER_DAILY_COST_CENTS };
+    }
+
     const currentCostCents = await getUserDailyCost(userId);
     return {
       allowed: currentCostCents < MAX_USER_DAILY_COST_CENTS,
@@ -80,7 +97,6 @@ export async function checkUserBudget(userId: string): Promise<{
       limitCents: MAX_USER_DAILY_COST_CENTS,
     };
   } catch (error) {
-    // Fail-open: allow generation if budget check fails
     console.error(
       JSON.stringify({
         event: "budget_check_failed",

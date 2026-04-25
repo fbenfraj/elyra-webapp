@@ -9,6 +9,7 @@ import type { SessionStatus } from "@/server/services/session";
 import { refineSession, commitRefinement } from "@/server/services/refine-session";
 import { checkPackBoundary, incrementRegenCount } from "@/server/services/payment";
 import { checkUserBudget } from "@/server/services/budget";
+import { isPremiumUser } from "@/server/services/user";
 import { getCuratedImages } from "@/server/services/evaluation";
 import { selectImage, confirmSelection } from "@/server/services/image-generation";
 import { generationCreateDirections } from "@/trigger/generation-create-directions";
@@ -137,6 +138,8 @@ export const generationRouter = createTRPCRouter({
 
       const status = session.status as SessionStatus;
 
+      const premium = await isPremiumUser(ctx.user.id);
+
       // For statuses where directions exist, fetch them
       const directionsStatuses: string[] = [
         "selecting", "complete", "direction_selected",
@@ -163,6 +166,7 @@ export const generationRouter = createTRPCRouter({
         directions: directions?.directions ?? null,
         generationJobId: directions?.generationJobId ?? null,
         deliverables,
+        isPremium: premium,
       };
     }),
 
@@ -333,29 +337,39 @@ export const generationRouter = createTRPCRouter({
         });
       }
 
-      if (session.status !== "paid") {
+      const premium = await isPremiumUser(ctx.user.id);
+
+      // Premium users can start from direction_selected (skip checkout)
+      const allowedStatuses = premium
+        ? ["paid", "direction_selected"]
+        : ["paid"];
+
+      if (!allowedStatuses.includes(session.status)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Session is not paid or ready for image generation",
+          message: premium
+            ? "Session is not ready for image generation"
+            : "Session is not paid or ready for image generation",
         });
       }
 
-      // Check user daily budget
-      const userBudget = await checkUserBudget(ctx.user.id);
-      if (!userBudget.allowed) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You've reached your daily limit. Come back tomorrow!",
-        });
-      }
+      // Skip budget checks for premium users
+      if (!premium) {
+        const userBudget = await checkUserBudget(ctx.user.id);
+        if (!userBudget.allowed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You've reached your daily limit. Come back tomorrow!",
+          });
+        }
 
-      // Check pack boundary
-      const boundary = await checkPackBoundary(input.sessionId, ctx.user.id);
-      if (!boundary.isPaid) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Session is not paid",
-        });
+        const boundary = await checkPackBoundary(input.sessionId, ctx.user.id);
+        if (!boundary.isPaid) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Session is not paid",
+          });
+        }
       }
 
       const batchNumber = session.regenCount + 1;
@@ -534,31 +548,32 @@ export const generationRouter = createTRPCRouter({
         });
       }
 
-      // Check user daily budget
-      const regenBudget = await checkUserBudget(ctx.user.id);
-      if (!regenBudget.allowed) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You've reached your daily limit. Come back tomorrow!",
-        });
+      const premium = await isPremiumUser(ctx.user.id);
+
+      // Skip budget and regen limit checks for premium users
+      if (!premium) {
+        const regenBudget = await checkUserBudget(ctx.user.id);
+        if (!regenBudget.allowed) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "You've reached your daily limit. Come back tomorrow!",
+          });
+        }
+
+        const boundary = await checkPackBoundary(input.sessionId, ctx.user.id);
+        if (!boundary.canRegenerate) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Regeneration limit reached",
+          });
+        }
       }
 
-      // Check pack boundary
-      const boundary = await checkPackBoundary(input.sessionId, ctx.user.id);
-      if (!boundary.canRegenerate) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Regeneration limit reached",
-        });
-      }
-
-      // Increment regen count and move status before enqueueing to prevent double-submit races
       await incrementRegenCount(input.sessionId);
       await updateSessionStatus(input.sessionId, "generating_images");
 
-      const batchNumber = session.regenCount + 2; // +1 for initial batch, +1 for new regen
+      const batchNumber = session.regenCount + 2;
 
-      // Trigger generation-create-images task
       await generationCreateImages.trigger({
         sessionId: session.id,
         userId: ctx.user.id,

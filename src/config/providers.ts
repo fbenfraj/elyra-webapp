@@ -11,9 +11,9 @@ export const MODERATION_CATEGORIES_BLOCKED = [
   "illicit",
 ] as const;
 
-// fal.ai image generation
-export const FAL_PREVIEW_MODEL = "fal-ai/flux/schnell" as const;
-export const FAL_COST_PER_IMAGE_CENTS = 0.3;
+// fal.ai image generation — unified model for preview and final
+export const FAL_PREVIEW_MODEL = "fal-ai/flux-pro/v1.1" as const;
+export const FAL_COST_PER_IMAGE_CENTS = 5;
 
 // Direction generation
 export const DIRECTION_PROMPT_MODEL = "gpt-4.1" as const;
@@ -22,7 +22,7 @@ export const DIRECTION_SUPPORTING_IMAGES = 2;
 export const DIRECTION_IMAGE_WIDTH = 1024;
 export const DIRECTION_IMAGE_HEIGHT = 1024;
 
-// fal.ai final image generation (Flux 2 Pro)
+// fal.ai final image generation (same model as preview)
 export const FAL_FINAL_MODEL = "fal-ai/flux-pro/v1.1" as const;
 export const FAL_FINAL_COST_PER_IMAGE_CENTS = 5;
 export const FINAL_IMAGE_COUNT = 4;
@@ -32,7 +32,7 @@ export const FINAL_IMAGE_HEIGHT = 1024;
 // Cloudflare R2
 export const R2_SIGNED_URL_EXPIRY_SECONDS = 3600;
 
-// Tiered model routing (Story 6.1)
+// Model routing — preview and final use the same model for now
 export type ProviderTier = "preview" | "final";
 
 export type ModelRoute = {

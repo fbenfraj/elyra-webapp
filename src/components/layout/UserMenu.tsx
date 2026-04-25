@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/app/(auth)/actions";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, ImageIcon, Settings, LogOut } from "lucide-react";
 
 export function UserMenu({ email }: { email: string }) {
   const initial = email.charAt(0).toUpperCase();
@@ -29,6 +29,10 @@ export function UserMenu({ email }: { email: string }) {
         <DropdownMenuItem onClick={() => router.push("/dashboard")}>
           <LayoutDashboard className="mr-2 size-4" />
           Dashboard
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/dashboard/library")}>
+          <ImageIcon className="mr-2 size-4" />
+          Library
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/settings")}>
           <Settings className="mr-2 size-4" />

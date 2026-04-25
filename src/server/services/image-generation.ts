@@ -96,7 +96,12 @@ export async function generateImages(
       };
     }
 
-    if (session.status !== "paid" && session.status !== "generating_images" && session.status !== "evaluating") {
+    if (
+      session.status !== "paid" &&
+      session.status !== "direction_selected" &&
+      session.status !== "generating_images" &&
+      session.status !== "evaluating"
+    ) {
       return {
         ok: false,
         error: {
@@ -129,7 +134,7 @@ export async function generateImages(
     }
 
     // Step 2b: Check session budget
-    const budget = await checkSessionBudget(sessionId);
+    const budget = await checkSessionBudget(sessionId, userId);
     if (!budget.allowed) {
       // Budget exhausted: stop cleanly, deliver best results so far
       await updateSessionStatus(sessionId, "selecting");

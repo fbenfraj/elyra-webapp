@@ -52,7 +52,7 @@ export const VALID_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
   // "complete" is the legacy name for "selecting" — allow forward from it
   complete: ["direction_selected", "selecting", "failed"],
   selecting: ["direction_selected", "packaging", "failed"],
-  direction_selected: ["paid", "failed"],
+  direction_selected: ["paid", "generating_images", "failed"],
   paid: ["generating_images", "failed"],
   generating_images: ["evaluating", "selecting", "failed"],
   evaluating: ["selecting", "generating_images", "failed"],
@@ -97,7 +97,11 @@ export async function deleteSessions(userId: string, sessionIds: string[]) {
 
     if (!session) continue;
 
-    // Delete child rows in dependency order, then the session
+    // Delete child rows in dependency order, then the session.
+    // feedback references generation_attempts, so it must be deleted first.
+    await db.execute(
+      sql`DELETE FROM feedback WHERE session_id = ${id}`
+    );
     await db.execute(
       sql`DELETE FROM generation_attempts WHERE session_id = ${id}`
     );
@@ -115,9 +119,6 @@ export async function deleteSessions(userId: string, sessionIds: string[]) {
     );
     await db.execute(
       sql`DELETE FROM session_events WHERE session_id = ${id}`
-    );
-    await db.execute(
-      sql`DELETE FROM feedback WHERE session_id = ${id}`
     );
     await db.execute(
       sql`DELETE FROM provider_metrics WHERE session_id = ${id}`

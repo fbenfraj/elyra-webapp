@@ -4,6 +4,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { R2_SIGNED_URL_EXPIRY_SECONDS } from "@/config/providers";
@@ -69,4 +70,13 @@ export async function uploadImageFromUrl(
   const buffer = Buffer.from(await response.arrayBuffer());
   const contentType = response.headers.get("content-type") ?? "image/webp";
   await uploadImage(key, buffer, contentType);
+}
+
+export async function deleteR2Object(key: string): Promise<void> {
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    })
+  );
 }

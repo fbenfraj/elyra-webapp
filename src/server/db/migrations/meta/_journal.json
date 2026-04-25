@@ -127,6 +127,13 @@
       "when": 1777675200000,
       "tag": "0017_create_provider_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1745539200000,
+      "tag": "0018_add_premium_and_favorited",
+      "breakpoints": true
     }
   ]
 }
