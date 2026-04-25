@@ -22,6 +22,7 @@ export type ImageGenOptions = {
   height: number;
   model: string;
   numImages: number;
+  referenceImages?: string[]; // signed R2 URLs for Kontext Multi conditioning
 };
 
 export type ImageGenResult = {
