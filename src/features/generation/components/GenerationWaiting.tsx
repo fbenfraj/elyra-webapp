@@ -7,6 +7,7 @@ import {
   AnimatedDashboardContainer,
   AnimatedDashboardItem,
 } from "@/features/session/components/DashboardAnimations";
+import { EditableBrief } from "@/features/generation/components/EditableBrief";
 
 /**
  * Atmospheric wrapper for all generation waiting screens.
@@ -16,9 +17,15 @@ import {
 export function GenerationWaiting({
   briefText,
   children,
+  canEditBrief = false,
+  onEditBrief,
+  isEditingBrief = false,
 }: {
   briefText: string;
   children: React.ReactNode;
+  canEditBrief?: boolean;
+  onEditBrief?: (newText: string) => void;
+  isEditingBrief?: boolean;
 }) {
   return (
     <AnimatedDashboardContainer className="relative flex flex-1 flex-col items-center justify-center gap-8 overflow-hidden">
@@ -58,14 +65,23 @@ export function GenerationWaiting({
 
       {/* Brief card */}
       <AnimatedDashboardItem className="w-full max-w-2xl px-4">
-        <div className="rounded-[var(--radius-md)] border border-[var(--border)]/40 bg-[var(--background-elevated)]/60 px-6 py-5 backdrop-blur-sm">
-          <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--foreground-subtle)]">
-            Your brief
-          </p>
-          <p className="mt-2 text-base leading-relaxed text-[var(--foreground)]">
-            &ldquo;{briefText}&rdquo;
-          </p>
-        </div>
+        {canEditBrief && onEditBrief ? (
+          <EditableBrief
+            briefText={briefText}
+            canEdit={canEditBrief}
+            onEdit={onEditBrief}
+            isEditing={isEditingBrief}
+          />
+        ) : (
+          <div className="rounded-[var(--radius-md)] border border-[var(--border)]/40 bg-[var(--background-elevated)]/60 px-6 py-5 backdrop-blur-sm">
+            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--foreground-subtle)]">
+              Your brief
+            </p>
+            <p className="mt-2 text-base leading-relaxed text-[var(--foreground)]">
+              &ldquo;{briefText}&rdquo;
+            </p>
+          </div>
+        )}
       </AnimatedDashboardItem>
 
       {/* Status content slot */}

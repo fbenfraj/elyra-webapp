@@ -59,7 +59,7 @@ export async function refineSession(
     return { ok: false, error: { code: "NOT_FOUND", message: "Session not found" } };
   }
 
-  if (session.status !== "complete" && session.status !== "direction_selected") {
+  if (session.status !== "complete" && session.status !== "selecting" && session.status !== "direction_selected") {
     return {
       ok: false,
       error: { code: "INVALID_STATUS", message: "Session is not in a state that allows refinement" },

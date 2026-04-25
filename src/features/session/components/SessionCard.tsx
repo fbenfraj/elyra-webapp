@@ -101,7 +101,7 @@ export function SessionCard({
         } else if (status === "delivered") {
           router.push(`/package/${id}`);
         } else {
-          router.push(`/generate?resume=${id}`);
+          router.push(`/generate/${id}`);
         }
       }}
       className={`flex w-full items-center gap-4 rounded-lg border border-transparent p-3 text-left transition-all duration-[var(--duration-fast)] hover:border-[var(--border)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${

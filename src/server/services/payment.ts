@@ -39,8 +39,8 @@ export async function createCheckoutSession(sessionId: string, userId: string) {
         quantity: 1,
       },
     ],
-    success_url: `${baseUrl}/generate?session_id=${sessionId}&payment=success`,
-    cancel_url: `${baseUrl}/generate?session_id=${sessionId}&payment=cancelled`,
+    success_url: `${baseUrl}/generate/${sessionId}?payment=success`,
+    cancel_url: `${baseUrl}/generate/${sessionId}?payment=cancelled`,
     metadata: { sessionId, userId },
   });
 

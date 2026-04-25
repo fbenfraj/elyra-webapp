@@ -305,6 +305,188 @@ export async function selectDirection(
   return { ok: true as const };
 }
 
+// ---------------------------------------------------------------------------
+// Edit brief (backward navigation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Statuses from which a user may edit the brief and restart interpretation.
+ * Excludes statuses where async work is actively in progress.
+ */
+export const EDIT_BRIEF_ALLOWED_FROM: SessionStatus[] = [
+  "selecting",
+  "complete",
+  "direction_selected",
+  "paid",
+  "generating_images",
+  "evaluating",
+  "delivered",
+];
+
+export async function editBrief(
+  sessionId: string,
+  userId: string,
+  newBriefText: string
+): Promise<
+  | { ok: true }
+  | { ok: false; error: { code: string; message: string } }
+> {
+  const [session] = await db
+    .select({
+      id: sessions.id,
+      userId: sessions.userId,
+      status: sessions.status,
+      briefText: sessions.briefText,
+      refinementCount: sessions.refinementCount,
+      refinementHistory: sessions.refinementHistory,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, userId)));
+
+  if (!session) {
+    return {
+      ok: false as const,
+      error: { code: "NOT_FOUND", message: "Session not found" },
+    };
+  }
+
+  if (
+    !EDIT_BRIEF_ALLOWED_FROM.includes(session.status as SessionStatus)
+  ) {
+    return {
+      ok: false as const,
+      error: {
+        code: "INVALID_STATUS",
+        message: `Cannot edit brief while session is ${session.status}`,
+      },
+    };
+  }
+
+  const historyEntry = {
+    round: (session.refinementCount ?? 0) + 1,
+    text: session.briefText,
+    timestamp: new Date().toISOString(),
+  };
+
+  const currentHistory = Array.isArray(session.refinementHistory)
+    ? (session.refinementHistory as Record<string, unknown>[])
+    : [];
+
+  const result = await db
+    .update(sessions)
+    .set({
+      briefText: newBriefText,
+      status: "interpreting",
+      refinementCount: (session.refinementCount ?? 0) + 1,
+      refinementHistory: [...currentHistory, historyEntry],
+      selectedDirectionId: null,
+      selectedGenerationJobId: null,
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(sessions.id, sessionId),
+        eq(sessions.status, session.status as string)
+      )
+    )
+    .returning({ id: sessions.id });
+
+  if (result.length === 0) {
+    return {
+      ok: false as const,
+      error: {
+        code: "STALE_SESSION",
+        message: "Session was modified concurrently",
+      },
+    };
+  }
+
+  return { ok: true as const };
+}
+
+// ---------------------------------------------------------------------------
+// Change direction post-payment (backward navigation)
+// ---------------------------------------------------------------------------
+
+/**
+ * Statuses from which a paid user may switch to a different direction.
+ * Excludes statuses where async work is actively in progress (packaging)
+ * and any pre-payment status.
+ */
+export const CHANGE_DIRECTION_ALLOWED_FROM: SessionStatus[] = [
+  "paid",
+  "generating_images",
+  "evaluating",
+  "delivered",
+];
+
+export async function changeDirectionPostPayment(
+  sessionId: string,
+  userId: string,
+  directionId: string,
+  generationJobId: string
+): Promise<
+  | { ok: true }
+  | { ok: false; error: { code: string; message: string } }
+> {
+  const [session] = await db
+    .select({
+      id: sessions.id,
+      userId: sessions.userId,
+      status: sessions.status,
+    })
+    .from(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, userId)));
+
+  if (!session) {
+    return {
+      ok: false as const,
+      error: { code: "NOT_FOUND", message: "Session not found" },
+    };
+  }
+
+  if (
+    !CHANGE_DIRECTION_ALLOWED_FROM.includes(session.status as SessionStatus)
+  ) {
+    return {
+      ok: false as const,
+      error: {
+        code: "INVALID_STATUS",
+        message: `Cannot change direction while session is ${session.status}`,
+      },
+    };
+  }
+
+  const result = await db
+    .update(sessions)
+    .set({
+      selectedDirectionId: directionId,
+      selectedGenerationJobId: generationJobId,
+      status: "paid",
+      regenCount: 0,
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(sessions.id, sessionId),
+        eq(sessions.status, session.status as string)
+      )
+    )
+    .returning({ id: sessions.id });
+
+  if (result.length === 0) {
+    return {
+      ok: false as const,
+      error: {
+        code: "STALE_SESSION",
+        message: "Session was modified concurrently",
+      },
+    };
+  }
+
+  return { ok: true as const };
+}
+
 export async function listByUserId(userId: string) {
   return db
     .select({

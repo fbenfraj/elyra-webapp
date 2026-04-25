@@ -114,8 +114,8 @@ describe("payment service", () => {
               quantity: 1,
             }),
           ],
-          success_url: expect.stringContaining("session_id=session-123"),
-          cancel_url: expect.stringContaining("session_id=session-123"),
+          success_url: expect.stringContaining("/generate/session-123?payment=success"),
+          cancel_url: expect.stringContaining("/generate/session-123?payment=cancelled"),
           metadata: { sessionId: "session-123", userId: "user-456" },
         })
       );

@@ -107,6 +107,65 @@ export const generationRouter = createTRPCRouter({
       };
     }),
 
+  getFullSession: authedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Fetch full session row
+      const [session] = await db
+        .select({
+          id: sessions.id,
+          status: sessions.status,
+          briefText: sessions.briefText,
+          failedStage: sessions.failedStage,
+          selectedDirectionId: sessions.selectedDirectionId,
+          selectedGenerationJobId: sessions.selectedGenerationJobId,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.id, input.sessionId),
+            eq(sessions.userId, ctx.user.id)
+          )
+        );
+
+      if (!session) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Session not found",
+        });
+      }
+
+      const status = session.status as SessionStatus;
+
+      // For statuses where directions exist, fetch them
+      const directionsStatuses: string[] = [
+        "selecting", "complete", "direction_selected",
+        "paid", "generating_images", "evaluating",
+      ];
+      let directions: Awaited<ReturnType<typeof getDirectionsForSession>> = null;
+      if (directionsStatuses.includes(status)) {
+        directions = await getDirectionsForSession(input.sessionId);
+      }
+
+      // TODO: Add deliverables fetch when delivery service is available
+      const deliverables: Array<{ id: string; format: string; fileUrl: string }> = [];
+
+      // Content policy failures are not retryable
+      const isContentPolicy = session.failedStage === "content_policy";
+      const canRetry = status === "failed" && !isContentPolicy;
+
+      return {
+        status,
+        briefText: session.briefText,
+        failedStage: session.failedStage,
+        canRetry,
+        selectedDirectionId: session.selectedDirectionId,
+        directions: directions?.directions ?? null,
+        generationJobId: directions?.generationJobId ?? null,
+        deliverables,
+      };
+    }),
+
   startDirections: authedProcedure
     .input(z.object({ sessionId: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -650,5 +709,60 @@ export const generationRouter = createTRPCRouter({
       }
 
       return { ok: true, retriedStage: session.failedStage };
+    }),
+
+  editBrief: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        newBriefText: z.string().min(1).max(2000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { editBrief } = await import("@/server/services/session");
+      const result = await editBrief(
+        input.sessionId,
+        ctx.user.id,
+        input.newBriefText
+      );
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: result.error.code === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      // Trigger re-interpretation with the new brief
+      return runInterpretation(input.sessionId, ctx.user.id, input.newBriefText);
+    }),
+
+  changeDirectionPostPayment: authedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        directionId: z.string(),
+        generationJobId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { changeDirectionPostPayment } = await import(
+        "@/server/services/session"
+      );
+      const result = await changeDirectionPostPayment(
+        input.sessionId,
+        ctx.user.id,
+        input.directionId,
+        input.generationJobId
+      );
+
+      if (!result.ok) {
+        throw new TRPCError({
+          code: result.error.code === "NOT_FOUND" ? "NOT_FOUND" : "BAD_REQUEST",
+          message: result.error.message,
+        });
+      }
+
+      return { ok: true };
     }),
 });
