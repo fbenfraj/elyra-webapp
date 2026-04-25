@@ -154,3 +154,22 @@ export async function fetchArtistCovers(
 
   return covers;
 }
+
+/**
+ * Search for artists by name using Spotify's search API.
+ */
+export async function searchArtists(
+  query: string,
+  limit: number = 5
+): Promise<Array<{ id: string; name: string; imageUrl: string | null }>> {
+  const encoded = encodeURIComponent(query.trim());
+  const data = await spotifyGet<{
+    artists: { items: SpotifyArtist[] };
+  }>(`/search?q=${encoded}&type=artist&limit=${limit}`);
+
+  return data.artists.items.map((artist) => ({
+    id: artist.id,
+    name: artist.name,
+    imageUrl: artist.images[0]?.url ?? null,
+  }));
+}
