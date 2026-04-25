@@ -10,6 +10,8 @@ import { eq, desc } from "drizzle-orm";
 import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
 import { updateSessionStatus, failSession } from "@/server/services/session";
+import { getSessionReferenceUrls } from "@/server/services/reference-images";
+import { getKontextReferencePrefix } from "@/config/providers";
 
 /** Stored in DB — uses stable R2 keys, not expiring signed URLs. */
 type StoredDirection = {
@@ -115,6 +117,9 @@ export async function generateDirections(
 
     const visualSpec = spec.specData as VisualSpec;
 
+    // Fetch reference image URLs for Kontext Multi conditioning
+    const referenceUrls = await getSessionReferenceUrls(sessionId);
+
     // Step 2: Generate differentiated direction prompts via LLM
     const { object: promptResult, usage } = await generateObject({
       model: openai(DIRECTION_PROMPT_MODEL),
@@ -134,6 +139,7 @@ export async function generateDirections(
       height: DIRECTION_IMAGE_HEIGHT,
       model: FAL_PREVIEW_MODEL,
       numImages: 1,
+      referenceImages: referenceUrls.length > 0 ? referenceUrls : undefined,
     };
 
     const storedDirections: StoredDirection[] = await Promise.all(
@@ -141,7 +147,10 @@ export async function generateDirections(
         const dirId = `${sessionId}-dir-${dirIndex}`;
 
         // Generate hero image
-        const heroResult = await getImageAdapter("preview").generate(dir.imagePrompt, imageOptions);
+        const heroPrompt = referenceUrls.length > 0
+          ? getKontextReferencePrefix(referenceUrls.length) + dir.imagePrompt
+          : dir.imagePrompt;
+        const heroResult = await getImageAdapter("preview").generate(heroPrompt, imageOptions);
         totalCostCents += heroResult.costCents;
 
         // Upload hero to R2
@@ -151,7 +160,10 @@ export async function generateDirections(
         // Generate supporting images in parallel
         const supportingImageKeys = await Promise.all(
           Array.from({ length: DIRECTION_SUPPORTING_IMAGES }, async (_, imgIndex) => {
-            const supportPrompt = `${dir.imagePrompt}, variation ${imgIndex + 1}, different composition and angle`;
+            const rawSupportPrompt = `${dir.imagePrompt}, variation ${imgIndex + 1}, different composition and angle`;
+            const supportPrompt = referenceUrls.length > 0
+              ? getKontextReferencePrefix(referenceUrls.length) + rawSupportPrompt
+              : rawSupportPrompt;
             const result = await getImageAdapter("preview").generate(supportPrompt, imageOptions);
             totalCostCents += result.costCents;
 
