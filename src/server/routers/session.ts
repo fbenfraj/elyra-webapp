@@ -7,7 +7,11 @@ import { briefInputSchema } from "@/lib/schemas/brief";
 
 export const sessionRouter = createTRPCRouter({
   create: authedProcedure.input(briefInputSchema).mutation(async ({ ctx, input }) => {
-    const session = await createSession(ctx.user.id, input.text);
+    const session = await createSession(
+      ctx.user.id,
+      input.text,
+      input.spotifyArtistUrl
+    );
     return { id: session.id };
   }),
 
