@@ -13,4 +13,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+  spotifyArtistId: text("spotify_artist_id"),
+  spotifyArtistName: text("spotify_artist_name"),
+  spotifyArtistImageUrl: text("spotify_artist_image_url"),
 });
