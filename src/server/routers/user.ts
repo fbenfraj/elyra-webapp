@@ -5,19 +5,22 @@ import { createTRPCRouter, authedProcedure } from "@/server/trpc/init";
 import { TRPCError } from "@trpc/server";
 import {
   getUserSettings,
-  setSpotifyArtist,
-  clearSpotifyArtist,
+  setUserArtist,
+  clearUserArtist,
+  completeOnboarding,
+  getOnboardingStatus,
 } from "@/server/services/user";
 import { searchArtists } from "@/server/providers/spotify";
+import { syncArtist } from "@/server/services/spotify-sync";
 
 export const userRouter = createTRPCRouter({
   settings: authedProcedure.query(async ({ ctx }) => {
-    const settings = await getUserSettings(ctx.user.id);
-    return settings ?? {
-      spotifyArtistId: null,
-      spotifyArtistName: null,
-      spotifyArtistImageUrl: null,
-    };
+    return getUserSettings(ctx.user.id);
+  }),
+
+  onboardingStatus: authedProcedure.query(async ({ ctx }) => {
+    const completed = await getOnboardingStatus(ctx.user.id);
+    return { completed };
   }),
 
   searchArtists: authedProcedure
@@ -33,21 +36,55 @@ export const userRouter = createTRPCRouter({
       }
     }),
 
-  setSpotifyArtist: authedProcedure
-    .input(
-      z.object({
-        id: z.string().min(1),
-        name: z.string().min(1),
-        imageUrl: z.string().nullable(),
-      })
-    )
+  syncArtist: authedProcedure
+    .input(z.object({ spotifyId: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      try {
+        const artist = await syncArtist(input.spotifyId);
+        return {
+          id: artist.id,
+          name: artist.name,
+          profileImageUrl: artist.profileImageUrl,
+          genres: artist.genres,
+          popularity: artist.popularity,
+          followerCount: artist.followerCount,
+          albums: artist.albums.map((a) => ({
+            id: a.id,
+            name: a.name,
+            releaseDate: a.releaseDate,
+            albumType: a.albumType,
+            coverImageUrl: a.coverImageUrl,
+          })),
+        };
+      } catch {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to sync artist data from Spotify",
+        });
+      }
+    }),
+
+  selectArtist: authedProcedure
+    .input(z.object({ artistId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      await setSpotifyArtist(ctx.user.id, input);
+      await setUserArtist(ctx.user.id, input.artistId);
       return { ok: true };
     }),
 
-  clearSpotifyArtist: authedProcedure.mutation(async ({ ctx }) => {
-    await clearSpotifyArtist(ctx.user.id);
+  clearArtist: authedProcedure.mutation(async ({ ctx }) => {
+    await clearUserArtist(ctx.user.id);
     return { ok: true };
   }),
+
+  completeOnboarding: authedProcedure
+    .input(
+      z.object({ artistId: z.string().min(1).optional() })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.artistId) {
+        await setUserArtist(ctx.user.id, input.artistId);
+      }
+      await completeOnboarding(ctx.user.id);
+      return { ok: true };
+    }),
 });

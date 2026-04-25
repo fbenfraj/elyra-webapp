@@ -15,8 +15,10 @@ export function SpotifyArtistSettings() {
 
   const { data: settings, isLoading } = useQuery(trpc.user.settings.queryOptions());
 
-  const setArtist = useMutation(
-    trpc.user.setSpotifyArtist.mutationOptions({
+  const syncArtist = useMutation(trpc.user.syncArtist.mutationOptions());
+
+  const selectArtist = useMutation(
+    trpc.user.selectArtist.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: trpc.user.settings.queryKey() });
         toast.success("Artist saved");
@@ -25,7 +27,7 @@ export function SpotifyArtistSettings() {
   );
 
   const clearArtist = useMutation(
-    trpc.user.clearSpotifyArtist.mutationOptions({
+    trpc.user.clearArtist.mutationOptions({
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: trpc.user.settings.queryKey() });
         toast.success("Artist removed");
@@ -33,12 +35,13 @@ export function SpotifyArtistSettings() {
     })
   );
 
-  function handleSelect(artist: ArtistResult) {
-    setArtist.mutate({
-      id: artist.id,
-      name: artist.name,
-      imageUrl: artist.imageUrl,
-    });
+  async function handleSelect(artist: ArtistResult) {
+    try {
+      const synced = await syncArtist.mutateAsync({ spotifyId: artist.id });
+      await selectArtist.mutateAsync({ artistId: synced.id });
+    } catch {
+      toast.error("Failed to save artist. Please try again.");
+    }
   }
 
   return (
