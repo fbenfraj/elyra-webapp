@@ -132,10 +132,22 @@ export async function deleteSessions(userId: string, sessionIds: string[]) {
   }
 }
 
-export async function createSession(userId: string, briefText: string) {
+export async function createSession(
+  userId: string,
+  briefText: string,
+  assetType: string,
+  userBrief: string | null,
+  companionFromSessionId?: string | null
+) {
   const [session] = await db
     .insert(sessions)
-    .values({ userId, briefText })
+    .values({
+      userId,
+      briefText,
+      assetType,
+      userBrief,
+      companionFromSessionId: companionFromSessionId ?? null,
+    })
     .returning({ id: sessions.id });
 
   return session;
@@ -243,6 +255,8 @@ export async function getSessionById(sessionId: string) {
       failedStage: sessions.failedStage,
       briefText: sessions.briefText,
       regenCount: sessions.regenCount,
+      assetType: sessions.assetType,
+      userBrief: sessions.userBrief,
     })
     .from(sessions)
     .where(eq(sessions.id, sessionId));
@@ -498,6 +512,7 @@ export async function listByUserId(userId: string) {
       briefText: sessions.briefText,
       status: sessions.status,
       createdAt: sessions.createdAt,
+      assetType: sessions.assetType,
     })
     .from(sessions)
     .where(eq(sessions.userId, userId))
