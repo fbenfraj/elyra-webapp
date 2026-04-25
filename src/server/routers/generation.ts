@@ -33,6 +33,7 @@ export const generationRouter = createTRPCRouter({
           id: sessions.id,
           briefText: sessions.briefText,
           status: sessions.status,
+          assetType: sessions.assetType,
         })
         .from(sessions)
         .where(
@@ -56,7 +57,7 @@ export const generationRouter = createTRPCRouter({
         });
       }
 
-      return runInterpretation(session.id, ctx.user.id, session.briefText);
+      return runInterpretation(session.id, ctx.user.id, session.briefText, session.assetType);
     }),
 
   getStatus: authedProcedure
@@ -282,7 +283,11 @@ export const generationRouter = createTRPCRouter({
       );
 
       // Run interpretation on the refined brief.
-      return runInterpretation(input.sessionId, ctx.user.id, result.refinedBrief);
+      const [refinedSessionRow] = await db
+        .select({ assetType: sessions.assetType })
+        .from(sessions)
+        .where(eq(sessions.id, input.sessionId));
+      return runInterpretation(input.sessionId, ctx.user.id, result.refinedBrief, refinedSessionRow?.assetType ?? "release_artwork");
     }),
 
   getAllDirections: authedProcedure
@@ -749,7 +754,11 @@ export const generationRouter = createTRPCRouter({
       }
 
       // Trigger re-interpretation with the new brief
-      return runInterpretation(input.sessionId, ctx.user.id, input.newBriefText);
+      const [editSession] = await db
+        .select({ assetType: sessions.assetType })
+        .from(sessions)
+        .where(eq(sessions.id, input.sessionId));
+      return runInterpretation(input.sessionId, ctx.user.id, input.newBriefText, editSession?.assetType ?? "release_artwork");
     }),
 
   changeDirectionPostPayment: authedProcedure

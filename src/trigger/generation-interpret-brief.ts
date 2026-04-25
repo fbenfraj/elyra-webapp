@@ -8,14 +8,15 @@ import { MODEL_ROUTING } from "@/config/providers";
 export const generationInterpretBrief = task({
   id: "generation-interpret-brief",
   run: async (
-    payload: TaskPayload<{ briefText: string }>
+    payload: TaskPayload<{ briefText: string; assetType?: string }>
   ): Promise<TaskResult<InterpretationOutput>> => {
     const taskStart = Date.now();
     try {
       const result = await runInterpretation(
         payload.sessionId,
         payload.userId,
-        payload.input.briefText
+        payload.input.briefText,
+        payload.input.assetType ?? "release_artwork"
       );
 
       console.info(JSON.stringify({

@@ -14,6 +14,8 @@ import { referenceImages } from "@/server/db/schema/reference-images";
 import { artistAlbums } from "@/server/db/schema/artist-albums";
 import { eq, desc } from "drizzle-orm";
 import { getSignedImageUrl } from "@/server/services/storage";
+import { getAssetTypeConfig } from "@/config/asset-types";
+import type { AssetTypeId } from "@/config/asset-types";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_REFERENCE_ALBUMS = 5;
@@ -127,7 +129,8 @@ async function copyArtistReferences(
 export async function runInterpretation(
   sessionId: string,
   userId: string,
-  briefText: string
+  briefText: string,
+  assetType: string
 ): Promise<TaskResult<InterpretationOutput>> {
   const start = Date.now();
 
@@ -178,9 +181,12 @@ export async function runInterpretation(
 
   // Step 4: LLM interpretation
   try {
+    const assetConfig = getAssetTypeConfig(assetType as AssetTypeId);
+    const assetPrefix = `[Asset type: ${assetConfig.label}]\n${assetConfig.interpretationContext}\n\n`;
+
     const promptWithContext = artistContext
-      ? `${briefText}\n\n---\nArtist context (use this to inform visual choices like color palette, mood, and style):\n${artistContext}`
-      : briefText;
+      ? `${assetPrefix}${briefText}\n\n---\nArtist context (use this to inform visual choices like color palette, mood, and style):\n${artistContext}`
+      : `${assetPrefix}${briefText}`;
 
     const result = await executeWithFallback(
       FALLBACK_CHAINS.interpretation,
