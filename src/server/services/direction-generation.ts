@@ -146,11 +146,33 @@ export async function generateDirections(
       promptResult.directions.map(async (dir, dirIndex) => {
         const dirId = `${sessionId}-dir-${dirIndex}`;
 
-        // Generate hero image
+        // Generate hero image (with Kontext fallback to text-only)
         const heroPrompt = referenceUrls.length > 0
           ? getKontextReferencePrefix(referenceUrls.length) + dir.imagePrompt
           : dir.imagePrompt;
-        const heroResult = await getImageAdapter("preview").generate(heroPrompt, imageOptions);
+        let heroResult;
+        try {
+          heroResult = await getImageAdapter("preview").generate(heroPrompt, imageOptions);
+        } catch (error) {
+          if (referenceUrls.length > 0) {
+            console.warn(
+              JSON.stringify({
+                event: "reference_fallback",
+                sessionId,
+                reason: "kontext_failed",
+                detail: error instanceof Error ? error.message : String(error),
+              })
+            );
+            heroResult = await getImageAdapter("preview").generate(dir.imagePrompt, {
+              width: DIRECTION_IMAGE_WIDTH,
+              height: DIRECTION_IMAGE_HEIGHT,
+              model: FAL_PREVIEW_MODEL,
+              numImages: 1,
+            });
+          } else {
+            throw error;
+          }
+        }
         totalCostCents += heroResult.costCents;
 
         // Upload hero to R2
@@ -164,7 +186,29 @@ export async function generateDirections(
             const supportPrompt = referenceUrls.length > 0
               ? getKontextReferencePrefix(referenceUrls.length) + rawSupportPrompt
               : rawSupportPrompt;
-            const result = await getImageAdapter("preview").generate(supportPrompt, imageOptions);
+            let result;
+            try {
+              result = await getImageAdapter("preview").generate(supportPrompt, imageOptions);
+            } catch (error) {
+              if (referenceUrls.length > 0) {
+                console.warn(
+                  JSON.stringify({
+                    event: "reference_fallback",
+                    sessionId,
+                    reason: "kontext_failed",
+                    detail: error instanceof Error ? error.message : String(error),
+                  })
+                );
+                result = await getImageAdapter("preview").generate(rawSupportPrompt, {
+                  width: DIRECTION_IMAGE_WIDTH,
+                  height: DIRECTION_IMAGE_HEIGHT,
+                  model: FAL_PREVIEW_MODEL,
+                  numImages: 1,
+                });
+              } else {
+                throw error;
+              }
+            }
             totalCostCents += result.costCents;
 
             const key = `sessions/${sessionId}/directions/${dirIndex}/support-${imgIndex}.webp`;
