@@ -37,6 +37,7 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
   const raw = {
     email: formData.get("email"),
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   };
 
   const parsed = signupSchema.safeParse(raw);
