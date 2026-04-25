@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { X } from "lucide-react";
 import { packConfig } from "@/config/pricing";
 
 interface PaywallModalProps {
@@ -83,9 +84,19 @@ export function PaywallModal({ open, onClose, onUnlock, isLoading = false, error
           onTouchEnd={handleTouchEnd}
         >
           <div className="flex flex-col gap-5">
-            <DialogTitle className="text-2xl font-semibold tracking-[-0.02em] text-[var(--foreground)]">
-              Unlock your release package
-            </DialogTitle>
+            <div className="flex items-start justify-between">
+              <DialogTitle className="text-2xl font-semibold tracking-[-0.02em] text-[var(--foreground)]">
+                Unlock your release package
+              </DialogTitle>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--foreground-muted)] transition-colors hover:bg-[var(--background-overlay)] hover:text-[var(--foreground)]"
+                aria-label="Close"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
 
             <DialogDescription className="sr-only">
               Purchase details for your release package

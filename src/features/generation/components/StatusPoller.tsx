@@ -2,6 +2,7 @@
 
 import { useTRPC } from "@/lib/trpc/client";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { STATUS_POLL_INTERVAL_MS } from "@/config/generation-timeouts";
 
 export function StatusPoller({ sessionId }: { sessionId: string }) {
@@ -21,8 +22,13 @@ export function StatusPoller({ sessionId }: { sessionId: string }) {
   );
 
   return (
-    <p className="mt-8 text-sm text-[var(--foreground-subtle)] transition-opacity duration-500">
-      {data?.stepLabel ?? "Starting..."}
-    </p>
+    <motion.p
+      className="text-lg text-[var(--foreground-muted)]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      {data?.stepLabel ?? "Interpreting your vision..."}
+    </motion.p>
   );
 }

@@ -9,6 +9,11 @@ import { FollowUpQuestions } from "@/features/generation/components/FollowUpQues
 import { StatusPoller } from "@/features/generation/components/StatusPoller";
 import { CreativeProcessLoader } from "@/features/generation/components/CreativeProcessLoader";
 import { GenerationError } from "@/features/generation/components/GenerationError";
+import {
+  GenerationWaiting,
+  PulseRings,
+  CyclingStatus,
+} from "@/features/generation/components/GenerationWaiting";
 import { useGenerationStatus } from "@/features/generation/lib/use-generation-status";
 import { DirectionGrid } from "@/features/generation/components/DirectionGrid";
 import { DirectionCard } from "@/features/generation/components/DirectionCard";
@@ -494,16 +499,15 @@ export default function GeneratePage() {
 
   if (state.phase === "resuming") {
     return (
-      <div className="flex min-h-[calc(100vh-48px)] items-center justify-center">
-        <p className="text-sm text-[var(--foreground-muted)]">Loading session...</p>
-      </div>
+      <GenerationWaiting briefText="Resuming your session...">
+        <PulseRings />
+      </GenerationWaiting>
     );
   }
 
   if (state.phase === "follow_up") {
     return (
-      <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
-        <BriefDisplay text={state.briefText} />
+      <GenerationWaiting briefText={state.briefText}>
         <FollowUpQuestions
           questions={state.questions}
           onSubmit={(response) => {
@@ -516,16 +520,16 @@ export default function GeneratePage() {
           }}
           isSubmitting={startInterpretation.isPending}
         />
-      </div>
+      </GenerationWaiting>
     );
   }
 
   if (state.phase === "processing") {
     return (
-      <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
-        <BriefDisplay text={state.briefText} />
+      <GenerationWaiting briefText={state.briefText}>
         <StatusPoller sessionId={state.sessionId} />
-      </div>
+        <PulseRings />
+      </GenerationWaiting>
     );
   }
 
@@ -559,7 +563,13 @@ export default function GeneratePage() {
         }
         onPaywallClose={() => {
           if (state.phase === "direction_selected") {
-            setState({ ...state, showPaywall: false });
+            setState({
+              phase: "directions_ready",
+              sessionId: state.sessionId,
+              briefText: state.briefText,
+              directions: state.directions,
+              generationJobId: state.generationJobId,
+            });
           }
         }}
         onPaywallUnlock={() => {
@@ -1104,14 +1114,10 @@ function PaidPhase({
   }, [packStatus?.isPaid, sessionId, startImageGen]);
 
   return (
-    <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
-      <p className="text-xl font-semibold tracking-[-0.02em] text-[var(--foreground)]">
-        Confirming payment...
-      </p>
-      <p className="mt-2 text-sm text-[var(--foreground-muted)]">
-        {briefText ? briefText.slice(0, 80) : "Your release pack is being prepared"}
-      </p>
-    </div>
+    <GenerationWaiting briefText={briefText || "Your release pack is being prepared"}>
+      <p className="text-lg text-[var(--foreground)]">Confirming payment...</p>
+      <PulseRings />
+    </GenerationWaiting>
   );
 }
 
@@ -1193,7 +1199,7 @@ function ImageGenerationPhase({
     );
   }
 
-  const phrases = [
+  const IMAGE_PHRASES = [
     "Generating within your direction...",
     "Evaluating composition and mood...",
     "Curating the strongest results...",
@@ -1201,124 +1207,41 @@ function ImageGenerationPhase({
     "Aligning with your creative vision...",
   ];
 
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-
-  const prefersReducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  useEffect(() => {
-    if (timeoutLevel === "extended") return;
-
-    const interval = setInterval(() => {
-      if (prefersReducedMotion) {
-        setPhraseIndex((prev) => (prev + 1) % phrases.length);
-      } else {
-        setIsVisible(false);
-        setTimeout(() => {
-          setPhraseIndex((prev) => (prev + 1) % phrases.length);
-          setIsVisible(true);
-        }, 500);
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [prefersReducedMotion, phrases.length, timeoutLevel]);
-
   return (
-    <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
-      {/* Blurred hero image background */}
-      {heroImageUrl && (
-        <div className="pointer-events-none fixed inset-0" style={{ opacity: 0.3 }}>
-          <img
-            src={heroImageUrl}
-            alt=""
-            className="h-full w-full object-cover blur-[40px]"
-          />
-        </div>
+    <GenerationWaiting briefText={briefText}>
+      {statusData?.stepLabel && timeoutLevel === "normal" && (
+        <p className="text-xs text-[var(--foreground-subtle)]">
+          {statusData.stepLabel}
+        </p>
       )}
 
-      {/* Fallback gradient when no hero image */}
-      {!heroImageUrl && (
-        <div className="pointer-events-none fixed inset-0 opacity-30">
-          <div className="h-full w-full bg-gradient-to-br from-[#1a1a2e] via-[#09090b] to-[#16213e]" />
-        </div>
-      )}
-
-      <div className="relative z-10 mx-auto w-full max-w-[var(--content-narrow)]">
-        {/* Brief display */}
-        <p className="text-sm text-[var(--foreground-muted)]">Your brief</p>
-        <p className="mt-1 text-base text-[var(--foreground)]">{briefText}</p>
-
-        {/* Status from server */}
-        {statusData?.stepLabel && timeoutLevel === "normal" && (
-          <p className="mt-4 text-xs text-[var(--foreground-subtle)]">
-            {statusData.stepLabel}
+      {timeoutLevel === "extended" ? (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-lg text-[var(--foreground)]">
+            We hit a snag. Your brief is saved — try again?
           </p>
-        )}
-
-        {/* Narrative text */}
-        <div aria-live="polite" className="mt-12 flex flex-col items-center">
-          {timeoutLevel === "extended" ? (
-            <>
-              <p className="text-lg text-[var(--foreground)]">
-                We hit a snag. Your brief is saved — try again?
-              </p>
-              <button
-                type="button"
-                onClick={() => retryMutation.mutate({ sessionId })}
-                className="mt-6 rounded-md border border-[var(--foreground-subtle)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
-              >
-                Try again
-              </button>
-            </>
-          ) : timeoutLevel === "delayed" ? (
-            <p className="text-lg text-[var(--foreground)]">
-              Taking a bit longer than usual...
-            </p>
-          ) : (
-            <p
-              className="text-lg text-[var(--foreground)]"
-              style={{
-                opacity: isVisible ? 1 : 0,
-                transition: prefersReducedMotion
-                  ? "none"
-                  : "opacity var(--duration-slow, 500ms) ease-in-out",
-              }}
-            >
-              {phrases[phraseIndex]}
-            </p>
-          )}
-
-          {/* Pulse element — only in normal/delayed */}
-          {!prefersReducedMotion && timeoutLevel !== "extended" && (
-            <div
-              className="mt-8 h-2 w-2 rounded-full"
-              style={{
-                backgroundColor: "var(--foreground-subtle)",
-                opacity: timeoutLevel === "delayed" ? 0.6 : 0.4,
-                animation:
-                  timeoutLevel === "delayed"
-                    ? "delayedPulse 1s ease-in-out infinite"
-                    : "pulse 1.5s ease-in-out infinite",
-              }}
-            />
-          )}
+          <button
+            type="button"
+            onClick={() => retryMutation.mutate({ sessionId })}
+            className="rounded-[var(--radius-sm)] border border-[var(--foreground-subtle)] px-5 py-2.5 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
+          >
+            Try again
+          </button>
         </div>
-      </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 0.4; }
-          50% { transform: scale(1.5); opacity: 0.2; }
-        }
-        @keyframes delayedPulse {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.8); opacity: 0.3; }
-        }
-      `}</style>
-    </div>
+      ) : timeoutLevel === "delayed" ? (
+        <div className="flex flex-col items-center gap-6">
+          <p className="text-lg text-[var(--foreground)]">
+            Taking a bit longer than usual...
+          </p>
+          <PulseRings />
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-8">
+          <CyclingStatus phrases={IMAGE_PHRASES} />
+          <PulseRings />
+        </div>
+      )}
+    </GenerationWaiting>
   );
 }
 
@@ -1377,7 +1300,7 @@ function PackagingPhase({
     );
   }
 
-  const phrases = [
+  const PACKAGING_PHRASES = [
     "Assembling your release package...",
     "Optimizing for every platform...",
     "Preparing your cover art...",
@@ -1385,102 +1308,41 @@ function PackagingPhase({
     "Almost ready...",
   ];
 
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-
-  const prefersReducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  useEffect(() => {
-    if (timeoutLevel === "extended") return;
-
-    const interval = setInterval(() => {
-      if (prefersReducedMotion) {
-        setPhraseIndex((prev) => (prev + 1) % phrases.length);
-      } else {
-        setIsVisible(false);
-        setTimeout(() => {
-          setPhraseIndex((prev) => (prev + 1) % phrases.length);
-          setIsVisible(true);
-        }, 500);
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [prefersReducedMotion, phrases.length, timeoutLevel]);
-
   return (
-    <div className="flex min-h-[calc(100vh-48px)] flex-col items-center justify-center">
-      <div className="relative z-10 mx-auto w-full max-w-[var(--content-narrow)]">
-        <p className="text-sm text-[var(--foreground-muted)]">Your brief</p>
-        <p className="mt-1 text-base text-[var(--foreground)]">{briefText}</p>
+    <GenerationWaiting briefText={briefText}>
+      {statusData?.stepLabel && timeoutLevel === "normal" && (
+        <p className="text-xs text-[var(--foreground-subtle)]">
+          {statusData.stepLabel}
+        </p>
+      )}
 
-        {statusData?.stepLabel && timeoutLevel === "normal" && (
-          <p className="mt-4 text-xs text-[var(--foreground-subtle)]">
-            {statusData.stepLabel}
+      {timeoutLevel === "extended" ? (
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-lg text-[var(--foreground)]">
+            We hit a snag. Your brief is saved — try again?
           </p>
-        )}
-
-        <div aria-live="polite" className="mt-12 flex flex-col items-center">
-          {timeoutLevel === "extended" ? (
-            <>
-              <p className="text-lg text-[var(--foreground)]">
-                We hit a snag. Your brief is saved — try again?
-              </p>
-              <button
-                type="button"
-                onClick={() => retryMutation.mutate({ sessionId })}
-                className="mt-6 rounded-md border border-[var(--foreground-subtle)] px-4 py-2 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
-              >
-                Try again
-              </button>
-            </>
-          ) : timeoutLevel === "delayed" ? (
-            <p className="text-lg text-[var(--foreground)]">
-              Taking a bit longer than usual...
-            </p>
-          ) : (
-            <p
-              className="text-lg text-[var(--foreground)]"
-              style={{
-                opacity: isVisible ? 1 : 0,
-                transition: prefersReducedMotion
-                  ? "none"
-                  : "opacity var(--duration-slow, 500ms) ease-in-out",
-              }}
-            >
-              {phrases[phraseIndex]}
-            </p>
-          )}
-
-          {!prefersReducedMotion && timeoutLevel !== "extended" && (
-            <div
-              className="mt-8 h-2 w-2 rounded-full"
-              style={{
-                backgroundColor: "var(--foreground-subtle)",
-                opacity: timeoutLevel === "delayed" ? 0.6 : 0.4,
-                animation:
-                  timeoutLevel === "delayed"
-                    ? "delayedPulse 1s ease-in-out infinite"
-                    : "pulse 1.5s ease-in-out infinite",
-              }}
-            />
-          )}
+          <button
+            type="button"
+            onClick={() => retryMutation.mutate({ sessionId })}
+            className="rounded-[var(--radius-sm)] border border-[var(--foreground-subtle)] px-5 py-2.5 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[var(--foreground)] hover:text-[var(--foreground)]"
+          >
+            Try again
+          </button>
         </div>
-      </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 0.4; }
-          50% { transform: scale(1.5); opacity: 0.2; }
-        }
-        @keyframes delayedPulse {
-          0%, 100% { transform: scale(1); opacity: 0.6; }
-          50% { transform: scale(1.8); opacity: 0.3; }
-        }
-      `}</style>
-    </div>
+      ) : timeoutLevel === "delayed" ? (
+        <div className="flex flex-col items-center gap-6">
+          <p className="text-lg text-[var(--foreground)]">
+            Taking a bit longer than usual...
+          </p>
+          <PulseRings />
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-8">
+          <CyclingStatus phrases={PACKAGING_PHRASES} />
+          <PulseRings />
+        </div>
+      )}
+    </GenerationWaiting>
   );
 }
 

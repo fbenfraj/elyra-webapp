@@ -69,7 +69,7 @@ export function DirectionGrid({
   }, [directions.length]);
 
   return (
-    <div className="flex min-h-[calc(100dvh-48px)] flex-col items-center justify-center">
+    <div className="flex min-h-[calc(100dvh-48px)] flex-col items-center justify-center py-8">
       {/* Brief text */}
       <div className="w-full max-w-[var(--content-wide)] px-0">
         <BriefDisplay text={briefText} />
@@ -170,7 +170,7 @@ export function DirectionGrid({
         <button
           type="button"
           onClick={onRecovery}
-          className="mt-[var(--space-8)] text-sm font-normal text-[var(--foreground-muted)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
+          className="mb-12 mt-[var(--space-8)] text-sm font-normal text-[var(--foreground-muted)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
         >
           None of these -- try a different angle
         </button>
