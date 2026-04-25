@@ -222,6 +222,7 @@ export function SessionList() {
               briefText={session.briefText}
               status={session.status}
               createdAt={new Date(session.createdAt)}
+              assetType={session.assetType ?? undefined}
               selectMode={selectMode}
               isSelected={selected.has(session.id)}
               onToggleSelect={() => toggleSelect(session.id)}

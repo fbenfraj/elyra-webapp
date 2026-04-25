@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ASSET_TYPES } from "@/config/asset-types";
+import type { AssetTypeId } from "@/config/asset-types";
 import {
   Clock,
   Loader,
@@ -74,6 +76,7 @@ type SessionCardProps = {
   briefText: string;
   status: string;
   createdAt: Date;
+  assetType?: string;
   selectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -84,6 +87,7 @@ export function SessionCard({
   briefText,
   status,
   createdAt,
+  assetType,
   selectMode = false,
   isSelected = false,
   onToggleSelect,
@@ -136,6 +140,11 @@ export function SessionCard({
         <p className="text-sm text-[var(--foreground-muted)]">
           {truncate(briefText, 60)}
         </p>
+        {assetType && (
+          <p className="mt-0.5 text-xs text-[var(--foreground-subtle)]">
+            {ASSET_TYPES[assetType as AssetTypeId]?.label ?? "Release Artwork"}
+          </p>
+        )}
         <p className={`mt-1 flex items-center text-sm ${isFailed ? "text-red-400" : "text-[var(--foreground)]"}`}>
           {(() => {
             const statusEntry = STATUS_ICONS[status];
