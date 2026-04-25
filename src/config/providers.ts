@@ -26,6 +26,47 @@ export const DIRECTION_IMAGE_HEIGHT = 1024;
 export const FAL_FINAL_MODEL = "fal-ai/flux-pro/v1.1" as const;
 export const FAL_FINAL_COST_PER_IMAGE_CENTS = 5;
 export const FINAL_IMAGE_COUNT = 4;
+
+// fal.ai Kontext Multi — image-conditioned generation
+export const FAL_KONTEXT_MULTI_MODEL = "fal-ai/flux-pro/kontext/multi" as const;
+export const FAL_KONTEXT_COST_PER_IMAGE_CENTS = 8;
+
+// Minimum reference image dimensions (below this, skip the image)
+export const REFERENCE_IMAGE_MIN_SIZE = 300;
+
+// Prompt prefix for Kontext Multi reference-conditioned generation
+export const KONTEXT_REFERENCE_PREFIX_FULL = `You are generating an image using reference images for visual grounding.
+
+Reference image roles:
+- Image 1: Artist identity — preserve the visual identity, appearance, and persona
+- Image 2: Visual style — use the artistic style, colors, and visual language
+- Image 3: Mood and palette — incorporate the atmosphere, mood, and color palette
+
+Generate the following:
+` as const;
+
+export const KONTEXT_REFERENCE_PREFIX_TWO = `You are generating an image using reference images for visual grounding.
+
+Reference image roles:
+- Image 1: Artist identity — preserve the visual identity, appearance, and persona
+- Image 2: Visual style and mood — use the artistic style, colors, mood, and atmosphere
+
+Generate the following:
+` as const;
+
+export const KONTEXT_REFERENCE_PREFIX_ONE = `You are generating an image using a reference image for visual grounding.
+
+Reference image role:
+- Image 1: Artist identity — preserve the visual identity, appearance, and persona
+
+Generate the following:
+` as const;
+
+export function getKontextReferencePrefix(imageCount: number): string {
+  if (imageCount >= 3) return KONTEXT_REFERENCE_PREFIX_FULL;
+  if (imageCount === 2) return KONTEXT_REFERENCE_PREFIX_TWO;
+  return KONTEXT_REFERENCE_PREFIX_ONE;
+}
 export const FINAL_IMAGE_WIDTH = 1024;
 export const FINAL_IMAGE_HEIGHT = 1024;
 
