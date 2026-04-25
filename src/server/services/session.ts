@@ -123,6 +123,9 @@ export async function deleteSessions(userId: string, sessionIds: string[]) {
     await db.execute(
       sql`DELETE FROM provider_metrics WHERE session_id = ${id}`
     );
+    await db.execute(
+      sql`DELETE FROM reference_images WHERE session_id = ${id}`
+    );
     await db
       .delete(sessions)
       .where(eq(sessions.id, id));
