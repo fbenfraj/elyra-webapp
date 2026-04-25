@@ -86,6 +86,52 @@ type SpotifyAlbumsResponse = {
   items: SpotifyAlbum[];
 };
 
+type SpotifyTrack = {
+  id: string;
+  name: string;
+};
+
+type SpotifyTopTracksResponse = {
+  tracks: SpotifyTrack[];
+};
+
+type SpotifyAudioFeature = {
+  id: string;
+  energy: number;
+  valence: number;
+  danceability: number;
+  acousticness: number;
+  instrumentalness: number;
+  tempo: number;
+  loudness: number;
+};
+
+type SpotifyAudioFeaturesResponse = {
+  audio_features: (SpotifyAudioFeature | null)[];
+};
+
+type SpotifyArtistFull = {
+  id: string;
+  name: string;
+  images: SpotifyImage[];
+  genres: string[];
+  popularity: number;
+  followers: { total: number };
+};
+
+type SpotifyAlbumFull = {
+  id: string;
+  name: string;
+  release_date: string;
+  album_type: string;
+  images: SpotifyImage[];
+};
+
+type SpotifyAlbumsPagedResponse = {
+  items: SpotifyAlbumFull[];
+  next: string | null;
+};
+
 /**
  * Extract Spotify artist ID from a full URL or raw ID.
  *
@@ -125,6 +171,28 @@ export async function fetchArtistProfile(
   const image = artist.images[0] ?? null;
 
   return { name: artist.name, image };
+}
+
+/**
+ * Fetch full artist profile including genres, popularity, and followers.
+ */
+export async function fetchArtistFull(
+  artistId: string
+): Promise<{
+  name: string;
+  image: SpotifyImage | null;
+  genres: string[];
+  popularity: number;
+  followerCount: number;
+}> {
+  const artist = await spotifyGet<SpotifyArtistFull>(`/artists/${artistId}`);
+  return {
+    name: artist.name,
+    image: artist.images[0] ?? null,
+    genres: artist.genres,
+    popularity: artist.popularity,
+    followerCount: artist.followers.total,
+  };
 }
 
 /**
@@ -171,5 +239,78 @@ export async function searchArtists(
     id: artist.id,
     name: artist.name,
     imageUrl: artist.images[0]?.url ?? null,
+  }));
+}
+
+/**
+ * Fetch artist's top tracks. Returns track IDs for audio features lookup.
+ */
+export async function fetchArtistTopTracks(
+  artistId: string
+): Promise<string[]> {
+  const data = await spotifyGet<SpotifyTopTracksResponse>(
+    `/artists/${artistId}/top-tracks?market=US`
+  );
+  return data.tracks.map((t) => t.id);
+}
+
+/**
+ * Fetch audio features for a batch of track IDs.
+ * Returns null if the endpoint is unavailable (403 / deprecated).
+ */
+export async function fetchAudioFeatures(
+  trackIds: string[]
+): Promise<SpotifyAudioFeature[] | null> {
+  if (trackIds.length === 0) return null;
+
+  const token = await getAccessToken();
+  const ids = trackIds.slice(0, 100).join(",");
+  const response = await fetch(
+    `${SPOTIFY_API_BASE}/audio-features?ids=${ids}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  if (response.status === 403) {
+    console.warn("Spotify audio-features endpoint returned 403 — skipping");
+    return null;
+  }
+
+  if (!response.ok) {
+    console.warn(`Spotify audio-features failed: ${response.status} — skipping`);
+    return null;
+  }
+
+  const data = (await response.json()) as SpotifyAudioFeaturesResponse;
+  return data.audio_features.filter(
+    (f): f is SpotifyAudioFeature => f !== null
+  );
+}
+
+/**
+ * Fetch all albums/singles for an artist (up to `limit`).
+ * Returns albums sorted by release date (most recent first from Spotify).
+ */
+export async function fetchArtistAlbums(
+  artistId: string,
+  limit: number = 50
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    releaseDate: string;
+    albumType: string;
+    coverImageUrl: string | null;
+  }>
+> {
+  const data = await spotifyGet<SpotifyAlbumsPagedResponse>(
+    `/artists/${artistId}/albums?include_groups=album,single&limit=${limit}`
+  );
+
+  return data.items.map((album) => ({
+    id: album.id,
+    name: album.name,
+    releaseDate: album.release_date,
+    albumType: album.album_type,
+    coverImageUrl: album.images[0]?.url ?? null,
   }));
 }
