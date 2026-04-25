@@ -1,26 +1,39 @@
 "use client";
 
-import { Music, X } from "lucide-react";
+import { Music, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SpotifyArtistSearch } from "@/features/settings/components/SpotifyArtistSearch";
 
-type ArtistResult = { id: string; name: string; imageUrl: string | null };
+type SearchResult = { id: string; name: string; imageUrl: string | null };
 
 export function SpotifyArtistSettings() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const { data: settings, isLoading } = useQuery(trpc.user.settings.queryOptions());
+  const { data: settings, isLoading } = useQuery(
+    trpc.user.settings.queryOptions()
+  );
 
-  const syncArtist = useMutation(trpc.user.syncArtist.mutationOptions());
+  const syncAndSelect = useMutation(
+    trpc.user.syncArtist.mutationOptions({
+      onSuccess: async (data) => {
+        await selectArtist.mutateAsync({ artistId: data.id });
+      },
+      onError: () => {
+        toast.error("Failed to sync artist from Spotify");
+      },
+    })
+  );
 
   const selectArtist = useMutation(
     trpc.user.selectArtist.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: trpc.user.settings.queryKey() });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.user.settings.queryKey(),
+        });
         toast.success("Artist saved");
       },
     })
@@ -29,27 +42,29 @@ export function SpotifyArtistSettings() {
   const clearArtist = useMutation(
     trpc.user.clearArtist.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: trpc.user.settings.queryKey() });
+        await queryClient.invalidateQueries({
+          queryKey: trpc.user.settings.queryKey(),
+        });
         toast.success("Artist removed");
       },
     })
   );
 
-  async function handleSelect(artist: ArtistResult) {
-    try {
-      const synced = await syncArtist.mutateAsync({ spotifyId: artist.id });
-      await selectArtist.mutateAsync({ artistId: synced.id });
-    } catch {
-      toast.error("Failed to save artist. Please try again.");
-    }
+  function handleSelect(artist: SearchResult) {
+    syncAndSelect.mutate({ spotifyId: artist.id });
   }
+
+  const isSyncing = syncAndSelect.isPending || selectArtist.isPending;
 
   return (
     <div className="rounded-xl border border-zinc-700/50 bg-zinc-900 p-6 space-y-5">
       <div>
-        <h2 className="text-base font-semibold text-zinc-100">Spotify Artist</h2>
+        <h2 className="text-base font-semibold text-zinc-100">
+          Spotify Artist
+        </h2>
         <p className="mt-1 text-sm text-zinc-400">
-          Link your Spotify artist profile to personalise your album cover generation.
+          Link your Spotify artist profile to personalise your album cover
+          generation.
         </p>
       </div>
 
@@ -81,6 +96,11 @@ export function SpotifyArtistSettings() {
             <p className="truncate text-sm font-medium text-zinc-100">
               {settings.artistName}
             </p>
+            {settings.artistGenres && settings.artistGenres.length > 0 && (
+              <p className="truncate text-xs text-zinc-500">
+                {settings.artistGenres.join(" · ")}
+              </p>
+            )}
           </div>
           <Button
             variant="ghost-secondary"
@@ -94,6 +114,13 @@ export function SpotifyArtistSettings() {
         </div>
       ) : (
         <p className="text-sm text-zinc-400">No artist connected yet</p>
+      )}
+
+      {isSyncing && (
+        <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <Loader2 className="size-4 animate-spin" />
+          Syncing artist data from Spotify...
+        </div>
       )}
 
       <div>
