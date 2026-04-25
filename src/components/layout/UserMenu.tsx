@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/app/(auth)/actions";
 import { useRouter } from "next/navigation";
+import { LayoutDashboard, Settings, LogOut } from "lucide-react";
 
 export function UserMenu({ email }: { email: string }) {
   const initial = email.charAt(0).toUpperCase();
@@ -16,7 +17,7 @@ export function UserMenu({ email }: { email: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-background-elevated text-sm font-medium text-foreground-muted transition-colors duration-[var(--duration-fast)] hover:bg-background-overlay focus:outline-none focus:ring-2 focus:ring-ring"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-background-elevated text-sm font-medium text-foreground-muted transition-colors duration-[var(--duration-fast)] hover:bg-background-overlay focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Account menu"
       >
         {initial}
@@ -26,9 +27,11 @@ export function UserMenu({ email }: { email: string }) {
         className="w-48 border-border bg-background-elevated"
       >
         <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+          <LayoutDashboard className="mr-2 size-4" />
           Dashboard
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/settings")}>
+          <Settings className="mr-2 size-4" />
           Account settings
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -40,6 +43,7 @@ export function UserMenu({ email }: { email: string }) {
             signOut();
           }}
         >
+          <LogOut className="mr-2 size-4" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

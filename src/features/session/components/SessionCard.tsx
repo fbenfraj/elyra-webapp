@@ -1,6 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import {
+  Clock,
+  Loader,
+  CheckCircle,
+  XCircle,
+  Sparkles,
+  ArrowDown,
+} from "lucide-react";
 
 function formatRelativeDate(date: Date): string {
   const now = Date.now();
@@ -38,6 +46,29 @@ const STATUS_LABELS: Record<string, string> = {
   failed: "Failed",
 };
 
+const STATUS_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; spin?: boolean }> = {
+  pending: { icon: Clock },
+  interpreting: { icon: Loader, spin: true },
+  generating_directions: { icon: Sparkles },
+  selecting: { icon: Loader, spin: true },
+  direction_selected: { icon: CheckCircle },
+  evaluating: { icon: Loader, spin: true },
+  packaging: { icon: Loader, spin: true },
+  delivered: { icon: ArrowDown },
+  complete: { icon: CheckCircle },
+  failed: { icon: XCircle },
+};
+
+function briefToGradient(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = text.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue1 = Math.abs(hash % 360);
+  const hue2 = (hue1 + 40) % 360;
+  return `linear-gradient(135deg, hsl(${hue1} 30% 20%), hsl(${hue2} 25% 15%))`;
+}
+
 type SessionCardProps = {
   id: string;
   briefText: string;
@@ -73,7 +104,7 @@ export function SessionCard({
           router.push(`/generate?resume=${id}`);
         }
       }}
-      className={`flex w-full items-center gap-4 rounded-lg p-3 text-left transition-colors duration-[var(--duration-fast)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
+      className={`flex w-full items-center gap-4 rounded-lg border border-transparent p-3 text-left transition-all duration-[var(--duration-fast)] hover:border-[var(--border)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
         isSelected ? "bg-[var(--background-overlay)]" : ""
       }`}
     >
@@ -94,15 +125,28 @@ export function SessionCard({
         </div>
       )}
 
-      {/* Thumbnail placeholder */}
-      <div className="size-20 shrink-0 rounded-[var(--radius-md)] bg-[var(--background-overlay)]" />
+      {/* Thumbnail */}
+      <div
+        className="size-20 shrink-0 rounded-[var(--radius-md)] border border-[var(--border)]"
+        style={{ background: briefToGradient(briefText) }}
+      />
 
       {/* Content */}
       <div className="min-w-0 flex-1">
         <p className="text-sm text-[var(--foreground-muted)]">
           {truncate(briefText, 60)}
         </p>
-        <p className={`mt-1 text-sm ${isFailed ? "text-red-400" : "text-[var(--foreground)]"}`}>
+        <p className={`mt-1 flex items-center text-sm ${isFailed ? "text-red-400" : "text-[var(--foreground)]"}`}>
+          {(() => {
+            const statusEntry = STATUS_ICONS[status];
+            if (!statusEntry) return null;
+            const IconComponent = statusEntry.icon;
+            return (
+              <IconComponent
+                className={`mr-1.5 size-3.5 ${statusEntry.spin ? "animate-spin" : ""}`}
+              />
+            );
+          })()}
           {STATUS_LABELS[status] ?? status}
         </p>
         <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
