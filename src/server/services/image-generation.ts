@@ -199,8 +199,11 @@ export async function generateImages(
       };
     }
 
-    // Step 4: Update status to generating_images
-    await updateSessionStatus(sessionId, "generating_images");
+    // Step 4: Update status to generating_images (skip if already there —
+    // the router may have set it before triggering the task)
+    if (session.status !== "generating_images") {
+      await updateSessionStatus(sessionId, "generating_images");
+    }
 
     // Step 5: Generate batch of images
     const basePrompt = promptOverride ?? buildPrompt(direction);

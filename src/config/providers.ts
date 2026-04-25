@@ -23,7 +23,7 @@ export const DIRECTION_IMAGE_WIDTH = 1024;
 export const DIRECTION_IMAGE_HEIGHT = 1024;
 
 // fal.ai final image generation (Flux 2 Pro)
-export const FAL_FINAL_MODEL = "fal-ai/flux-pro/v2" as const;
+export const FAL_FINAL_MODEL = "fal-ai/flux-pro/v1.1" as const;
 export const FAL_FINAL_COST_PER_IMAGE_CENTS = 5;
 export const FINAL_IMAGE_COUNT = 4;
 export const FINAL_IMAGE_WIDTH = 1024;

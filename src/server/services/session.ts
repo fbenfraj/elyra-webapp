@@ -58,7 +58,7 @@ export const VALID_TRANSITIONS: Record<SessionStatus, SessionStatus[]> = {
   evaluating: ["selecting", "generating_images", "failed"],
   packaging: ["delivered", "failed"],
   delivered: [],
-  failed: ["pending"],
+  failed: ["pending", "interpreting", "generating_directions", "generating_images", "evaluating", "packaging"],
 };
 
 // ---------------------------------------------------------------------------
