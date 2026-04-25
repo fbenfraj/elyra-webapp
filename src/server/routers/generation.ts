@@ -684,7 +684,7 @@ export const generationRouter = createTRPCRouter({
         case "interpreting": {
           await generationInterpretBrief.trigger({
             ...payload,
-            input: { briefText: session.briefText },
+            input: { briefText: session.briefText, assetType: session.assetType },
           });
           break;
         }
