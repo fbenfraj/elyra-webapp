@@ -62,6 +62,18 @@ Reference image role:
 Generate the following:
 ` as const;
 
+// Guidance scale for user-selected references (stronger style matching)
+export const USER_SELECTED_GUIDANCE_SCALE = 5.0;
+
+// Guidance scale for auto-Spotify references (current default)
+export const AUTO_REFERENCE_GUIDANCE_SCALE = 3.5;
+
+// Unified style-matching prompt prefix for user-selected references
+export const USER_SELECTED_REFERENCE_PREFIX = `Using the provided reference images as strong style guides, generate an image that closely matches their artistic style, color palette, composition techniques, and visual aesthetic.
+
+Generate the following:
+` as const;
+
 export function getKontextReferencePrefix(imageCount: number): string {
   if (imageCount >= 3) return KONTEXT_REFERENCE_PREFIX_FULL;
   if (imageCount === 2) return KONTEXT_REFERENCE_PREFIX_TWO;

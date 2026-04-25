@@ -3,6 +3,10 @@ import "server-only";
 import { db } from "@/server/db";
 import { sessions } from "@/server/db/schema/sessions";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { referenceImages } from "@/server/db/schema/reference-images";
+import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
+import { userReferences } from "@/server/db/schema/user-references";
+import { inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Session state machine
@@ -124,6 +128,9 @@ export async function deleteSessions(userId: string, sessionIds: string[]) {
       sql`DELETE FROM provider_metrics WHERE session_id = ${id}`
     );
     await db.execute(
+      sql`DELETE FROM session_reference_selections WHERE session_id = ${id}`
+    );
+    await db.execute(
       sql`DELETE FROM reference_images WHERE session_id = ${id}`
     );
     await db
@@ -137,7 +144,8 @@ export async function createSession(
   briefText: string,
   assetType: string,
   userBrief: string | null,
-  companionFromSessionId?: string | null
+  companionFromSessionId?: string | null,
+  referenceIds?: string[]
 ) {
   const [session] = await db
     .insert(sessions)
@@ -149,6 +157,41 @@ export async function createSession(
       companionFromSessionId: companionFromSessionId ?? null,
     })
     .returning({ id: sessions.id });
+
+  // Store reference selections and create session-scoped reference_images rows
+  if (referenceIds && referenceIds.length > 0) {
+    const refs = await db
+      .select({
+        id: userReferences.id,
+        r2Key: userReferences.r2Key,
+        source: userReferences.source,
+      })
+      .from(userReferences)
+      .where(inArray(userReferences.id, referenceIds));
+
+    // Insert selection records
+    await db.insert(sessionReferenceSelections).values(
+      refs.map((ref, idx) => ({
+        sessionId: session.id,
+        userReferenceId: ref.id,
+        position: idx,
+      }))
+    );
+
+    // Create reference_images rows pointing to the same R2 keys
+    await db.insert(referenceImages).values(
+      refs.map((ref, idx) => ({
+        sessionId: session.id,
+        type: ref.source === "spotify_profile" ? "profile" : "cover",
+        source: ref.source.startsWith("spotify") ? "spotify" : "upload",
+        sourceUrl: "",
+        r2Key: ref.r2Key,
+        width: 640,
+        height: 640,
+        position: idx,
+      }))
+    );
+  }
 
   return session;
 }

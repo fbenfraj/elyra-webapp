@@ -12,7 +12,13 @@ import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
 import { updateSessionStatus, failSession } from "@/server/services/session";
 import { getSessionReferenceUrls } from "@/server/services/reference-images";
-import { getKontextReferencePrefix } from "@/config/providers";
+import {
+  getKontextReferencePrefix,
+  USER_SELECTED_REFERENCE_PREFIX,
+  USER_SELECTED_GUIDANCE_SCALE,
+  AUTO_REFERENCE_GUIDANCE_SCALE,
+} from "@/config/providers";
+import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
 import { getAssetTypeConfig } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
 
@@ -137,6 +143,21 @@ export async function generateDirections(
     // Fetch reference image URLs for Kontext Multi conditioning
     const referenceUrls = await getSessionReferenceUrls(sessionId);
 
+    // Determine if user explicitly selected references (vs auto-Spotify)
+    let isUserSelected = false;
+    if (referenceUrls.length > 0) {
+      const [sel] = await db
+        .select({ id: sessionReferenceSelections.sessionId })
+        .from(sessionReferenceSelections)
+        .where(eq(sessionReferenceSelections.sessionId, sessionId))
+        .limit(1);
+      isUserSelected = !!sel;
+    }
+
+    const guidanceScale = isUserSelected
+      ? USER_SELECTED_GUIDANCE_SCALE
+      : AUTO_REFERENCE_GUIDANCE_SCALE;
+
     // Step 2: Generate differentiated direction prompts via LLM
     const { object: promptResult, usage } = await generateObject({
       model: openai(DIRECTION_PROMPT_MODEL),
@@ -157,6 +178,7 @@ export async function generateDirections(
       model: FAL_PREVIEW_MODEL,
       numImages: 1,
       referenceImages: referenceUrls.length > 0 ? referenceUrls : undefined,
+      guidanceScale: referenceUrls.length > 0 ? guidanceScale : undefined,
     };
 
     const storedDirections: StoredDirection[] = await Promise.all(
@@ -164,8 +186,11 @@ export async function generateDirections(
         const dirId = `${sessionId}-dir-${dirIndex}`;
 
         // Generate hero image (with Kontext fallback to text-only)
+        const referencePrefix = isUserSelected
+          ? USER_SELECTED_REFERENCE_PREFIX
+          : getKontextReferencePrefix(referenceUrls.length);
         const heroPrompt = referenceUrls.length > 0
-          ? getKontextReferencePrefix(referenceUrls.length) + dir.imagePrompt
+          ? referencePrefix + dir.imagePrompt
           : dir.imagePrompt;
         let heroResult;
         try {
@@ -201,7 +226,7 @@ export async function generateDirections(
           Array.from({ length: DIRECTION_SUPPORTING_IMAGES }, async (_, imgIndex) => {
             const rawSupportPrompt = `${dir.imagePrompt}, variation ${imgIndex + 1}, different composition and angle`;
             const supportPrompt = referenceUrls.length > 0
-              ? getKontextReferencePrefix(referenceUrls.length) + rawSupportPrompt
+              ? referencePrefix + rawSupportPrompt
               : rawSupportPrompt;
             let result;
             try {

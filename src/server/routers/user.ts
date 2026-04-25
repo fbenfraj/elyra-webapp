@@ -11,7 +11,7 @@ import {
   getOnboardingStatus,
 } from "@/server/services/user";
 import { searchArtists } from "@/server/providers/spotify";
-import { syncArtist } from "@/server/services/spotify-sync";
+import { syncArtist, syncArtistAndPopulateReferences } from "@/server/services/spotify-sync";
 
 export const userRouter = createTRPCRouter({
   settings: authedProcedure.query(async ({ ctx }) => {
@@ -38,9 +38,9 @@ export const userRouter = createTRPCRouter({
 
   syncArtist: authedProcedure
     .input(z.object({ spotifyId: z.string().min(1) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       try {
-        const artist = await syncArtist(input.spotifyId);
+        const artist = await syncArtistAndPopulateReferences(input.spotifyId, ctx.user.id);
         return {
           id: artist.id,
           name: artist.name,

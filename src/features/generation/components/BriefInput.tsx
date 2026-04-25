@@ -10,6 +10,7 @@ import {
 } from "@/features/session/components/DashboardAnimations";
 import { ASSET_TYPES, ASSET_TYPE_IDS } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
+import { ReferencePicker } from "@/features/generation/components/ReferencePicker";
 
 const MIN_HEIGHT = 120;
 const MAX_HEIGHT = 200;
@@ -20,7 +21,7 @@ export function BriefInput({
   defaultAssetType,
   defaultText,
 }: {
-  onSubmit: (assetType: AssetTypeId, text?: string) => void;
+  onSubmit: (assetType: AssetTypeId, text?: string, referenceIds?: string[]) => void;
   isSubmitting: boolean;
   defaultAssetType?: AssetTypeId;
   defaultText?: string;
@@ -30,14 +31,19 @@ export function BriefInput({
     defaultAssetType ?? "release_artwork"
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
 
   const config = ASSET_TYPES[selectedType];
 
   const handleSubmit = useCallback(() => {
     if (isSubmitting) return;
     const trimmed = text.trim();
-    onSubmit(selectedType, trimmed.length > 0 ? trimmed : undefined);
-  }, [text, isSubmitting, onSubmit, selectedType]);
+    onSubmit(
+      selectedType,
+      trimmed.length > 0 ? trimmed : undefined,
+      selectedReferenceIds.length > 0 ? selectedReferenceIds : undefined
+    );
+  }, [text, isSubmitting, onSubmit, selectedType, selectedReferenceIds]);
 
   const handleInput = useCallback(() => {
     const textarea = textareaRef.current;
@@ -162,6 +168,12 @@ export function BriefInput({
           <p className="mt-2 text-center text-xs text-[var(--foreground-subtle)]">
             Optional — we'll use your artist profile
           </p>
+          <div className="mt-4">
+            <ReferencePicker
+              selectedIds={selectedReferenceIds}
+              onSelectionChange={setSelectedReferenceIds}
+            />
+          </div>
           <div className="mt-4 flex w-full justify-center">
             <motion.button
               type="button"

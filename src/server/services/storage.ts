@@ -80,3 +80,18 @@ export async function deleteR2Object(key: string): Promise<void> {
     })
   );
 }
+
+export async function createPresignedUploadUrl(
+  key: string,
+  contentType: string
+): Promise<string> {
+  return getSignedUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ContentType: contentType,
+    }),
+    { expiresIn: 600 } // 10 minutes
+  );
+}

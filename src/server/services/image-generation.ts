@@ -21,7 +21,11 @@ import {
   FINAL_IMAGE_WIDTH,
   FINAL_IMAGE_HEIGHT,
   getKontextReferencePrefix,
+  USER_SELECTED_REFERENCE_PREFIX,
+  USER_SELECTED_GUIDANCE_SCALE,
+  AUTO_REFERENCE_GUIDANCE_SCALE,
 } from "@/config/providers";
+import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
 import { getSessionReferenceUrls } from "@/server/services/reference-images";
 import type { TaskResult } from "@/types/task";
 import type { EvaluationResult } from "@/lib/schemas/evaluation";
@@ -225,12 +229,31 @@ export async function generateImages(
     // Fetch reference image URLs for Kontext Multi conditioning
     const referenceUrls = await getSessionReferenceUrls(sessionId);
 
+    // Determine if user explicitly selected references
+    let isUserSelected = false;
+    if (referenceUrls.length > 0) {
+      const [sel] = await db
+        .select({ id: sessionReferenceSelections.sessionId })
+        .from(sessionReferenceSelections)
+        .where(eq(sessionReferenceSelections.sessionId, sessionId))
+        .limit(1);
+      isUserSelected = !!sel;
+    }
+
+    const guidanceScale = isUserSelected
+      ? USER_SELECTED_GUIDANCE_SCALE
+      : AUTO_REFERENCE_GUIDANCE_SCALE;
+    const referencePrefix = isUserSelected
+      ? USER_SELECTED_REFERENCE_PREFIX
+      : getKontextReferencePrefix(referenceUrls.length);
+
     const imageOptions = {
       width: assetConfig.width,
       height: assetConfig.height,
       model: FAL_FINAL_MODEL,
       numImages: 1,
       referenceImages: referenceUrls.length > 0 ? referenceUrls : undefined,
+      guidanceScale: referenceUrls.length > 0 ? guidanceScale : undefined,
     };
 
     const results = await Promise.allSettled(
@@ -243,7 +266,7 @@ export async function generateImages(
         // Prepend Kontext reference prefix when references are available
         const prompt =
           referenceUrls.length > 0
-            ? getKontextReferencePrefix(referenceUrls.length) + rawPrompt
+            ? referencePrefix + rawPrompt
             : rawPrompt;
 
         let genResult;

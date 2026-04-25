@@ -49,8 +49,8 @@ export default function GeneratePage() {
   return (
     <div className="flex flex-1 flex-col">
       <BriefInput
-        onSubmit={(assetType, text) =>
-          createSession.mutate({ assetType, text })
+        onSubmit={(assetType, text, referenceIds) =>
+          createSession.mutate({ assetType, text, referenceIds })
         }
         isSubmitting={createSession.isPending}
         defaultAssetType={companionType ?? undefined}

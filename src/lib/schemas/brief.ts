@@ -14,6 +14,7 @@ export const briefInputSchema = z.object({
     .string()
     .transform((s) => s.trim())
     .optional(),
+  referenceIds: z.array(z.string()).max(5).optional(),
 });
 
 export type BriefInput = z.infer<typeof briefInputSchema>;

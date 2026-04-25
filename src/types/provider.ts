@@ -23,6 +23,7 @@ export type ImageGenOptions = {
   model: string;
   numImages: number;
   referenceImages?: string[]; // signed R2 URLs for Kontext Multi conditioning
+  guidanceScale?: number;
 };
 
 export type ImageGenResult = {

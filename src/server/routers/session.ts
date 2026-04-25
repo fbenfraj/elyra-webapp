@@ -6,6 +6,8 @@ import { createSession, listByUserId, deleteSessions } from "@/server/services/s
 import { briefInputSchema } from "@/lib/schemas/brief";
 import { getAssetTypeConfig } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
+import { validateOwnership } from "@/server/services/user-references";
+import { TRPCError } from "@trpc/server";
 
 export const sessionRouter = createTRPCRouter({
   create: authedProcedure.input(briefInputSchema).mutation(async ({ ctx, input }) => {
@@ -15,11 +17,24 @@ export const sessionRouter = createTRPCRouter({
     const userBrief = input.text && input.text.length > 0 ? input.text : null;
     const effectiveBrief = userBrief ?? config.defaultBrief;
 
+    // Validate reference ownership
+    if (input.referenceIds && input.referenceIds.length > 0) {
+      const owned = await validateOwnership(ctx.user.id, input.referenceIds);
+      if (!owned) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "One or more references do not belong to your account.",
+        });
+      }
+    }
+
     const session = await createSession(
       ctx.user.id,
       effectiveBrief,
       assetType,
-      userBrief
+      userBrief,
+      undefined,
+      input.referenceIds
     );
     return { id: session.id };
   }),

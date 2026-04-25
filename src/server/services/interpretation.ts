@@ -14,6 +14,7 @@ import { referenceImages } from "@/server/db/schema/reference-images";
 import { artistAlbums } from "@/server/db/schema/artist-albums";
 import { eq, desc } from "drizzle-orm";
 import { getSignedImageUrl } from "@/server/services/storage";
+import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
 import { getAssetTypeConfig } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
 
@@ -227,7 +228,14 @@ export async function runInterpretation(
     await updateSessionStatus(sessionId, "generating_directions");
 
     // Step 8: Copy pre-downloaded reference images from artist cache
-    if (artistId) {
+    // Skip if user already selected references for this session
+    const [hasUserSelections] = await db
+      .select({ id: sessionReferenceSelections.sessionId })
+      .from(sessionReferenceSelections)
+      .where(eq(sessionReferenceSelections.sessionId, sessionId))
+      .limit(1);
+
+    if (!hasUserSelections && artistId) {
       try {
         const copied = await copyArtistReferences(
           sessionId,
@@ -239,6 +247,7 @@ export async function runInterpretation(
             event: "references_copied",
             sessionId,
             count: copied,
+            mode: "auto_spotify",
           })
         );
       } catch (error) {
@@ -250,6 +259,13 @@ export async function runInterpretation(
           })
         );
       }
+    } else if (hasUserSelections) {
+      console.info(
+        JSON.stringify({
+          event: "references_skipped_user_selected",
+          sessionId,
+        })
+      );
     }
 
     return {

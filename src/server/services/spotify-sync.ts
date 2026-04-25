@@ -12,6 +12,7 @@ import {
   fetchArtistAlbums,
 } from "@/server/providers/spotify";
 import { uploadImageFromUrl } from "@/server/services/storage";
+import { upsertSpotifyReferences } from "@/server/services/user-references";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -260,4 +261,61 @@ export async function getCachedArtist(
     audioProfile: artist.audioProfile as CachedArtist["audioProfile"],
     albums,
   };
+}
+
+/**
+ * Sync artist and populate user's reference library with Spotify images.
+ * Call this from the user router after artist sync.
+ */
+export async function syncArtistAndPopulateReferences(
+  spotifyId: string,
+  userId: string
+): Promise<CachedArtist> {
+  const artist = await syncArtist(spotifyId);
+
+  // Build reference images list from the synced data
+  const images: Array<{
+    source: "spotify_profile" | "spotify_cover";
+    r2Key: string;
+    originalFilename: string | null;
+    width: number;
+    height: number;
+  }> = [];
+
+  if (artist.profileR2Key) {
+    images.push({
+      source: "spotify_profile",
+      r2Key: artist.profileR2Key,
+      originalFilename: artist.name,
+      width: 640,
+      height: 640,
+    });
+  }
+
+  for (const album of artist.albums) {
+    if (album.r2Key) {
+      images.push({
+        source: "spotify_cover",
+        r2Key: album.r2Key,
+        originalFilename: album.name,
+        width: 640,
+        height: 640,
+      });
+    }
+  }
+
+  if (images.length > 0) {
+    const inserted = await upsertSpotifyReferences(userId, artist.id, images);
+    console.info(
+      JSON.stringify({
+        event: "spotify_references_populated",
+        userId,
+        artistId: artist.id,
+        inserted,
+        total: images.length,
+      })
+    );
+  }
+
+  return artist;
 }

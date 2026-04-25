@@ -87,7 +87,7 @@ async function generateWithReferences(
       image_urls: options.referenceImages ?? [],
       num_images: 1,
       output_format: "jpeg",
-      guidance_scale: 3.5,
+      guidance_scale: options.guidanceScale ?? 3.5,
     },
   });
 

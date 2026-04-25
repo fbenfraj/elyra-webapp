@@ -78,15 +78,14 @@ export function LibraryGrid() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
-        {data && (
+      {/* Image count */}
+      {data && (
+        <div className="flex items-center justify-end">
           <p className="text-sm text-foreground-muted">
             {data.total} image{data.total !== 1 ? "s" : ""}
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Filters */}
       <LibraryFilters
