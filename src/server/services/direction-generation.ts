@@ -6,12 +6,15 @@ import { z } from "zod/v4";
 import { db } from "@/server/db";
 import { visualSpecs } from "@/server/db/schema/visual-specs";
 import { generationJobs } from "@/server/db/schema/generation-jobs";
+import { sessions } from "@/server/db/schema/sessions";
 import { eq, desc } from "drizzle-orm";
 import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
 import { updateSessionStatus, failSession } from "@/server/services/session";
 import { getSessionReferenceUrls } from "@/server/services/reference-images";
 import { getKontextReferencePrefix } from "@/config/providers";
+import { getAssetTypeConfig } from "@/config/asset-types";
+import type { AssetTypeId } from "@/config/asset-types";
 
 /** Stored in DB — uses stable R2 keys, not expiring signed URLs. */
 type StoredDirection = {
@@ -69,7 +72,8 @@ const directionPromptSchema = z.object({
   ).min(2).max(3),
 });
 
-const DIRECTION_SYSTEM_PROMPT = `You are a creative direction engine for music artists. Given a structured visual specification (VisualSpec), generate ${DIRECTION_COUNT} visually DISTINCT creative directions.
+function buildDirectionSystemPrompt(assetTypeLabel: string, promptSuffix: string): string {
+  return `You are a creative direction engine for music artists. Given a structured visual specification (VisualSpec), generate ${DIRECTION_COUNT} visually DISTINCT creative directions.
 
 DIRECTION DIFFERENTIATION (CRITICAL):
 - Direction 1 (literal): Closest to what the artist described. Direct visual translation.
@@ -78,11 +82,13 @@ DIRECTION DIFFERENTIATION (CRITICAL):
 
 Each direction MUST feel fundamentally different — not variations of the same idea.
 
+ASSET TYPE: ${assetTypeLabel}
+
 IMAGE PROMPT RULES:
 - Write detailed, specific prompts for Flux Schnell image generation
 - Include: subject, composition, lighting, color palette, style, mood
 - Avoid: text, words, letters, watermarks, logos
-- Target: album cover art, square format, high quality
+- Target: ${promptSuffix}
 
 COLOR PALETTE:
 - 5 hex colors per direction that define that direction's visual world
@@ -91,6 +97,7 @@ COLOR PALETTE:
 MOOD LABEL:
 - Short, evocative phrase (2-5 words)
 - Artist-friendly language, not technical terms`;
+}
 
 export async function generateDirections(
   sessionId: string,
@@ -117,6 +124,16 @@ export async function generateDirections(
 
     const visualSpec = spec.specData as VisualSpec;
 
+    // Read session's asset type for config-driven prompt framing
+    const [sessionRow] = await db
+      .select({ assetType: sessions.assetType })
+      .from(sessions)
+      .where(eq(sessions.id, sessionId));
+
+    const assetConfig = getAssetTypeConfig(
+      (sessionRow?.assetType ?? "release_artwork") as AssetTypeId
+    );
+
     // Fetch reference image URLs for Kontext Multi conditioning
     const referenceUrls = await getSessionReferenceUrls(sessionId);
 
@@ -124,7 +141,7 @@ export async function generateDirections(
     const { object: promptResult, usage } = await generateObject({
       model: openai(DIRECTION_PROMPT_MODEL),
       schema: directionPromptSchema,
-      system: DIRECTION_SYSTEM_PROMPT,
+      system: buildDirectionSystemPrompt(assetConfig.label, assetConfig.promptSuffix),
       prompt: JSON.stringify(visualSpec),
     });
 
@@ -135,8 +152,8 @@ export async function generateDirections(
 
     // Step 3: Generate images for all directions in parallel
     const imageOptions = {
-      width: DIRECTION_IMAGE_WIDTH,
-      height: DIRECTION_IMAGE_HEIGHT,
+      width: assetConfig.width,
+      height: assetConfig.height,
       model: FAL_PREVIEW_MODEL,
       numImages: 1,
       referenceImages: referenceUrls.length > 0 ? referenceUrls : undefined,
@@ -164,8 +181,8 @@ export async function generateDirections(
               })
             );
             heroResult = await getImageAdapter("preview").generate(dir.imagePrompt, {
-              width: DIRECTION_IMAGE_WIDTH,
-              height: DIRECTION_IMAGE_HEIGHT,
+              width: assetConfig.width,
+              height: assetConfig.height,
               model: FAL_PREVIEW_MODEL,
               numImages: 1,
             });
@@ -200,8 +217,8 @@ export async function generateDirections(
                   })
                 );
                 result = await getImageAdapter("preview").generate(rawSupportPrompt, {
-                  width: DIRECTION_IMAGE_WIDTH,
-                  height: DIRECTION_IMAGE_HEIGHT,
+                  width: assetConfig.width,
+                  height: assetConfig.height,
                   model: FAL_PREVIEW_MODEL,
                   numImages: 1,
                 });
