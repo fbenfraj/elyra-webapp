@@ -3,8 +3,9 @@ import "server-only";
 import type { TaskResult } from "@/types/task";
 import type { VisualSpec } from "@/lib/schemas/visual-spec";
 import { moderateBrief, interpretBrief } from "@/server/providers/openai";
-import { updateSessionStatus, failSession, getSessionById } from "@/server/services/session";
+import { updateSessionStatus, failSession } from "@/server/services/session";
 import { fetchAndStoreReferences } from "@/server/services/reference-images";
+import { getUserSettings } from "@/server/services/user";
 import { executeWithFallback } from "@/server/services/provider-executor";
 import { FALLBACK_CHAINS } from "@/config/providers";
 import { storeVisualSpec } from "@/server/services/visual-spec-store";
@@ -83,11 +84,12 @@ export async function runInterpretation(
     // Step 6: Update session status to 'generating_directions'
     await updateSessionStatus(sessionId, "generating_directions");
 
-    // Step 7: Fetch and store Spotify reference images (non-blocking on failure)
-    const session = await getSessionById(sessionId);
-    if (session?.spotifyArtistUrl) {
+    // Step 7: Fetch and store Spotify reference images from user-level setting
+    const userSettings = await getUserSettings(userId);
+    if (userSettings?.spotifyArtistId) {
+      const artistUrl = `https://open.spotify.com/artist/${userSettings.spotifyArtistId}`;
       try {
-        await fetchAndStoreReferences(sessionId, session.spotifyArtistUrl);
+        await fetchAndStoreReferences(sessionId, artistUrl);
       } catch (error) {
         console.warn(
           JSON.stringify({
