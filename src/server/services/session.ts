@@ -6,7 +6,9 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { referenceImages } from "@/server/db/schema/reference-images";
 import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
 import { userReferences } from "@/server/db/schema/user-references";
+import { generationAttempts } from "@/server/db/schema/generation-attempts";
 import { inArray } from "drizzle-orm";
+import { getSignedImageUrl } from "@/server/services/storage";
 
 // ---------------------------------------------------------------------------
 // Session state machine
@@ -549,7 +551,7 @@ export async function changeDirectionPostPayment(
 }
 
 export async function listByUserId(userId: string) {
-  return db
+  const sessionRows = await db
     .select({
       id: sessions.id,
       briefText: sessions.briefText,
@@ -560,4 +562,40 @@ export async function listByUserId(userId: string) {
     .from(sessions)
     .where(eq(sessions.userId, userId))
     .orderBy(desc(sessions.createdAt));
+
+  if (sessionRows.length === 0) return [];
+
+  // Fetch the best-scored generation attempt per session in one query
+  const sessionIds = sessionRows.map((s) => s.id);
+  const allAttempts = await db
+    .select({
+      sessionId: generationAttempts.sessionId,
+      imageKey: generationAttempts.imageKey,
+      evaluationScore: generationAttempts.evaluationScore,
+    })
+    .from(generationAttempts)
+    .where(inArray(generationAttempts.sessionId, sessionIds))
+    .orderBy(desc(generationAttempts.evaluationScore));
+
+  // Pick the best image per session
+  const bestBySession = new Map<string, string>();
+  for (const attempt of allAttempts) {
+    if (!bestBySession.has(attempt.sessionId)) {
+      bestBySession.set(attempt.sessionId, attempt.imageKey);
+    }
+  }
+
+  // Sign URLs in parallel
+  const previewMap = new Map<string, string>();
+  await Promise.all(
+    Array.from(bestBySession.entries()).map(async ([sessionId, imageKey]) => {
+      const url = await getSignedImageUrl(imageKey);
+      previewMap.set(sessionId, url);
+    })
+  );
+
+  return sessionRows.map((s) => ({
+    ...s,
+    previewImageUrl: previewMap.get(s.id) ?? null,
+  }));
 }

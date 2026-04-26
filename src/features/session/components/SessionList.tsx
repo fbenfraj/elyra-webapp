@@ -6,7 +6,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { Sparkles, Palette, Download, Plus } from "lucide-react";
+import { Sparkles, Palette, Download, Plus, Music2, Disc3, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionCard } from "@/features/session/components/SessionCard";
 import {
@@ -18,22 +18,257 @@ import {
 function SessionListSkeleton() {
   return (
     <motion.div
-      className="space-y-2"
+      className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center gap-4 rounded-lg p-3">
-          <div className="size-20 shrink-0 animate-pulse rounded-[var(--radius-md)] bg-[var(--background-overlay)]" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-4 w-3/4 animate-pulse rounded bg-[var(--background-overlay)]" />
-            <div className="h-4 w-1/4 animate-pulse rounded bg-[var(--background-overlay)]" />
-            <div className="h-3 w-1/6 animate-pulse rounded bg-[var(--background-overlay)]" />
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="overflow-hidden rounded-xl border border-[var(--border)]">
+          <div className="aspect-square animate-pulse bg-[var(--background-overlay)]" />
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="h-3 w-16 animate-pulse rounded bg-[var(--background-overlay)]" />
+            <div className="h-3 w-10 animate-pulse rounded bg-[var(--background-overlay)]" />
           </div>
         </div>
       ))}
     </motion.div>
+  );
+}
+
+function ArtistHero({
+  artistName,
+  artistImageUrl,
+  artistGenres,
+  sessionCount,
+}: {
+  artistName: string;
+  artistImageUrl: string | null;
+  artistGenres: string[] | null;
+  sessionCount: number;
+}) {
+  return (
+    <AnimatedDashboardItem>
+      <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)]">
+        {/* Background: blurred artist image or gradient */}
+        <div className="absolute inset-0 -z-10">
+          {artistImageUrl ? (
+            <>
+              <Image
+                src={artistImageUrl}
+                alt=""
+                fill
+                className="object-cover blur-2xl saturate-[0.6]"
+                sizes="100vw"
+              />
+              <div className="absolute inset-0 bg-[#09090b]/70" />
+            </>
+          ) : (
+            <div
+              className="h-full w-full"
+              style={{
+                background:
+                  "linear-gradient(135deg, #18181b 0%, #27272a 50%, #18181b 100%)",
+              }}
+            />
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex items-center gap-6 px-8 py-8">
+          {/* Artist profile image */}
+          {artistImageUrl ? (
+            <div className="relative size-20 shrink-0 overflow-hidden rounded-full border-2 border-white/10 shadow-2xl">
+              <Image
+                src={artistImageUrl}
+                alt={artistName}
+                fill
+                className="object-cover"
+                sizes="80px"
+              />
+            </div>
+          ) : (
+            <div className="flex size-20 shrink-0 items-center justify-center rounded-full border-2 border-white/10 bg-[var(--background-overlay)]">
+              <Music2 className="size-8 text-[var(--foreground-subtle)]" />
+            </div>
+          )}
+
+          {/* Text */}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-white">
+              {artistName}
+            </h1>
+            {artistGenres && artistGenres.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {artistGenres.slice(0, 3).map((genre) => (
+                  <span
+                    key={genre}
+                    className="rounded-full bg-white/8 px-3 py-0.5 text-xs text-[var(--foreground-muted)]"
+                  >
+                    {genre}
+                  </span>
+                ))}
+              </div>
+            )}
+            <p className="mt-2 text-sm text-[var(--foreground-subtle)]">
+              {sessionCount} release{sessionCount !== 1 ? "s" : ""} created
+            </p>
+          </div>
+        </div>
+      </div>
+    </AnimatedDashboardItem>
+  );
+}
+
+function GeneratedWorkStrip() {
+  const router = useRouter();
+  const trpc = useTRPC();
+  const { data } = useQuery(
+    trpc.library.list.queryOptions({ page: 1 })
+  );
+
+  if (!data || data.images.length === 0) return null;
+
+  const preview = data.images.slice(0, 8);
+
+  return (
+    <AnimatedDashboardItem className="mt-10">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+          Generated work
+        </h3>
+        <button
+          onClick={() => router.push("/dashboard/library")}
+          className="flex items-center gap-1 text-sm text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
+        >
+          View all
+          <ArrowRight className="size-3.5" />
+        </button>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {preview.map((img) => (
+          <div
+            key={img.id}
+            className="relative size-32 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] transition-all duration-300 hover:border-[#3f3f46]"
+          >
+            <img
+              src={img.imageUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ))}
+        {data.total > 8 && (
+          <button
+            onClick={() => router.push("/dashboard/library")}
+            className="flex size-32 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--border)] text-[var(--foreground-subtle)] transition-colors hover:border-[#3f3f46] hover:text-[var(--foreground-muted)]"
+          >
+            <span className="text-2xl font-light">+{data.total - 8}</span>
+            <span className="text-[11px]">View all</span>
+          </button>
+        )}
+      </div>
+    </AnimatedDashboardItem>
+  );
+}
+
+function ReferencesStrip() {
+  const router = useRouter();
+  const trpc = useTRPC();
+  const { data: references } = useQuery(
+    trpc.reference.list.queryOptions()
+  );
+
+  if (!references || references.length === 0) return null;
+
+  const preview = references.slice(0, 8);
+
+  return (
+    <AnimatedDashboardItem className="mt-10">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
+          Style references
+        </h3>
+        <button
+          onClick={() => router.push("/dashboard/library")}
+          className="flex items-center gap-1 text-sm text-[var(--foreground-muted)] transition-colors hover:text-[var(--foreground)]"
+        >
+          View all
+          <ArrowRight className="size-3.5" />
+        </button>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {preview.map((ref) => (
+          <div
+            key={ref.id}
+            className="relative size-28 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] transition-all duration-300 hover:border-[#3f3f46]"
+          >
+            <img
+              src={ref.imageUrl}
+              alt={ref.originalFilename ?? "Reference"}
+              className="h-full w-full object-cover"
+            />
+            {/* Source badge */}
+            <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-white/80 backdrop-blur-sm">
+              {ref.source.startsWith("spotify") ? "Spotify" : "Upload"}
+            </span>
+          </div>
+        ))}
+        {references.length > 8 && (
+          <button
+            onClick={() => router.push("/dashboard/library")}
+            className="flex size-28 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--border)] text-[var(--foreground-subtle)] transition-colors hover:border-[#3f3f46] hover:text-[var(--foreground-muted)]"
+          >
+            <span className="text-2xl font-light">+{references.length - 8}</span>
+            <span className="text-[11px]">View all</span>
+          </button>
+        )}
+      </div>
+    </AnimatedDashboardItem>
+  );
+}
+
+function SpotifySetupPrompt() {
+  const router = useRouter();
+
+  return (
+    <AnimatedDashboardItem>
+      <div className="relative mb-8 overflow-hidden rounded-2xl border border-dashed border-[#3f3f46]">
+        {/* Subtle gradient background */}
+        <div
+          className="absolute inset-0 -z-10"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(30,215,96,0.06) 0%, #18181b 40%, #18181b 60%, rgba(30,215,96,0.04) 100%)",
+          }}
+        />
+
+        <div className="flex items-center gap-6 px-8 py-8">
+          {/* Spotify-green accent circle */}
+          <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-[#1ed760]/10 ring-1 ring-[#1ed760]/20">
+            <Disc3 className="size-7 text-[#1ed760]" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold text-[var(--foreground)]">
+              Connect your Spotify artist profile
+            </h3>
+            <p className="mt-1 text-sm text-[var(--foreground-muted)]">
+              Link your artist to get personalized style references from your album covers and profile.
+            </p>
+          </div>
+
+          <motion.button
+            onClick={() => router.push("/settings")}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            className="shrink-0 rounded-full bg-[#1ed760] px-5 py-2 text-sm font-semibold text-[#09090b] shadow-[0_0_15px_rgba(30,215,96,0.15)] transition-shadow duration-300 hover:shadow-[0_0_25px_rgba(30,215,96,0.25)]"
+          >
+            Set up
+          </motion.button>
+        </div>
+      </div>
+    </AnimatedDashboardItem>
   );
 }
 
@@ -46,6 +281,10 @@ export function SessionList() {
 
   const { data: sessions, isLoading } = useQuery(
     trpc.session.list.queryOptions()
+  );
+
+  const { data: userSettings } = useQuery(
+    trpc.user.settings.queryOptions()
   );
 
   const deleteSession = useMutation(
@@ -74,7 +313,7 @@ export function SessionList() {
   if (!sessions || sessions.length === 0) {
     return (
       <AnimatedDashboardContainer className="relative flex flex-1 flex-col items-center justify-center gap-8 overflow-hidden">
-        {/* Background image with auth-page effects */}
+        {/* Background image with atmospheric effects */}
         <motion.div
           className="pointer-events-none absolute inset-0 -z-10"
           initial={{ opacity: 0, scale: 1.1 }}
@@ -92,7 +331,6 @@ export function SessionList() {
             priority
             sizes="100vw"
           />
-          {/* Radial vignette — fades edges into the dark background */}
           <div
             className="absolute inset-0"
             style={{
@@ -100,7 +338,6 @@ export function SessionList() {
                 "radial-gradient(ellipse at center, transparent 30%, #09090b 75%)",
             }}
           />
-          {/* Top/bottom vignette */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#09090b]/60 via-transparent to-[#09090b]/80" />
         </motion.div>
 
@@ -135,13 +372,35 @@ export function SessionList() {
           </div>
         </AnimatedDashboardItem>
 
+        {/* Spotify prompt for empty state */}
+        {userSettings && !userSettings.artistId && (
+          <AnimatedDashboardItem>
+            <button
+              onClick={() => router.push("/settings")}
+              className="flex items-center gap-4 rounded-xl border border-dashed border-[#3f3f46] bg-white/[0.02] px-6 py-4 text-left transition-colors hover:border-[#1ed760]/40 hover:bg-[#1ed760]/[0.03]"
+            >
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1ed760]/10">
+                <Disc3 className="size-5 text-[#1ed760]" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-[var(--foreground)]">
+                  Connect your Spotify artist profile
+                </p>
+                <p className="text-xs text-[var(--foreground-subtle)]">
+                  Get personalized style references from your music
+                </p>
+              </div>
+            </button>
+          </AnimatedDashboardItem>
+        )}
+
         {/* CTA */}
         <AnimatedDashboardItem>
           <motion.button
             onClick={() => router.push("/generate")}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-white px-8 py-3 text-base font-semibold text-[#09090b] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
+            className="flex items-center gap-2 rounded-full bg-white px-8 py-3 text-base font-semibold text-[#09090b] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
           >
             <Plus className="size-5" />
             Start your first release
@@ -153,11 +412,24 @@ export function SessionList() {
 
   return (
     <AnimatedDashboardContainer>
+      {/* Artist hero section — or setup prompt if no artist linked */}
+      {userSettings?.artistName ? (
+        <ArtistHero
+          artistName={userSettings.artistName}
+          artistImageUrl={userSettings.artistImageUrl}
+          artistGenres={userSettings.artistGenres}
+          sessionCount={sessions.length}
+        />
+      ) : userSettings && !userSettings.artistId ? (
+        <SpotifySetupPrompt />
+      ) : null}
+
+      {/* Header with actions */}
       <AnimatedDashboardItem>
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
             Releases
-          </h1>
+          </h2>
           <div className="flex items-center gap-2">
             {selectMode ? (
               <>
@@ -203,18 +475,23 @@ export function SessionList() {
                 >
                   Select
                 </Button>
-                <Button
-                  variant="ghost-secondary"
+                <motion.button
                   onClick={() => router.push("/generate")}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-[#09090b] shadow-[0_0_15px_rgba(255,255,255,0.1)] transition-shadow duration-300 hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]"
                 >
+                  <Plus className="size-4" />
                   New release
-                </Button>
+                </motion.button>
               </>
             )}
           </div>
         </div>
       </AnimatedDashboardItem>
-      <div className="space-y-1">
+
+      {/* Session grid */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {sessions.map((session, index) => (
           <AnimatedCardItem key={session.id} index={index}>
             <SessionCard
@@ -223,6 +500,7 @@ export function SessionList() {
               status={session.status}
               createdAt={new Date(session.createdAt)}
               assetType={session.assetType ?? undefined}
+              previewImageUrl={session.previewImageUrl}
               selectMode={selectMode}
               isSelected={selected.has(session.id)}
               onToggleSelect={() => toggleSelect(session.id)}
@@ -230,6 +508,12 @@ export function SessionList() {
           </AnimatedCardItem>
         ))}
       </div>
+
+      {/* Generated work strip */}
+      <GeneratedWorkStrip />
+
+      {/* References strip */}
+      <ReferencesStrip />
     </AnimatedDashboardContainer>
   );
 }

@@ -4,6 +4,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/app/(auth)/actions";
@@ -38,6 +39,7 @@ export function UserMenu({ email }: { email: string }) {
           <Settings className="mr-2 size-4" />
           Account settings
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
             const form = document.createElement("form");
@@ -46,6 +48,7 @@ export function UserMenu({ email }: { email: string }) {
             document.body.appendChild(form);
             signOut();
           }}
+          className="text-red-400 focus:text-red-300"
         >
           <LogOut className="mr-2 size-4" />
           Sign out

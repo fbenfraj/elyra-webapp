@@ -3,14 +3,7 @@
 import { useRouter } from "next/navigation";
 import { ASSET_TYPES } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
-import {
-  Clock,
-  Loader,
-  CheckCircle,
-  XCircle,
-  Sparkles,
-  ArrowDown,
-} from "lucide-react";
+import { Loader, ArrowDown, XCircle } from "lucide-react";
 
 function formatRelativeDate(date: Date): string {
   const now = Date.now();
@@ -30,37 +23,6 @@ function formatRelativeDate(date: Date): string {
   return `${diffMonths}mo ago`;
 }
 
-function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength).trimEnd() + "...";
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
-  interpreting: "Interpreting brief",
-  generating_directions: "Generating directions",
-  selecting: "Selecting direction",
-  direction_selected: "Direction chosen",
-  evaluating: "Evaluating",
-  packaging: "Packaging",
-  delivered: "Ready to download",
-  complete: "Completed",
-  failed: "Failed",
-};
-
-const STATUS_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; spin?: boolean }> = {
-  pending: { icon: Clock },
-  interpreting: { icon: Loader, spin: true },
-  generating_directions: { icon: Sparkles },
-  selecting: { icon: Loader, spin: true },
-  direction_selected: { icon: CheckCircle },
-  evaluating: { icon: Loader, spin: true },
-  packaging: { icon: Loader, spin: true },
-  delivered: { icon: ArrowDown },
-  complete: { icon: CheckCircle },
-  failed: { icon: XCircle },
-};
-
 function briefToGradient(text: string): string {
   let hash = 0;
   for (let i = 0; i < text.length; i++) {
@@ -71,12 +33,31 @@ function briefToGradient(text: string): string {
   return `linear-gradient(135deg, hsl(${hue1} 30% 20%), hsl(${hue2} 25% 15%))`;
 }
 
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; icon?: React.ComponentType<{ className?: string }>; spin?: boolean }
+> = {
+  pending: { label: "Pending", color: "#71717a" },
+  interpreting: { label: "Interpreting", color: "#eab308", icon: Loader, spin: true },
+  generating_directions: { label: "Generating", color: "#eab308", icon: Loader, spin: true },
+  selecting: { label: "Choose direction", color: "#3b82f6" },
+  direction_selected: { label: "Direction chosen", color: "#22c55e" },
+  paid: { label: "Processing", color: "#eab308", icon: Loader, spin: true },
+  generating_images: { label: "Creating", color: "#eab308", icon: Loader, spin: true },
+  evaluating: { label: "Evaluating", color: "#eab308", icon: Loader, spin: true },
+  packaging: { label: "Packaging", color: "#eab308", icon: Loader, spin: true },
+  delivered: { label: "Download", color: "#22c55e", icon: ArrowDown },
+  complete: { label: "Complete", color: "#22c55e" },
+  failed: { label: "Failed", color: "#ef4444", icon: XCircle },
+};
+
 type SessionCardProps = {
   id: string;
   briefText: string;
   status: string;
   createdAt: Date;
   assetType?: string;
+  previewImageUrl?: string | null;
   selectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
@@ -88,13 +69,30 @@ export function SessionCard({
   status,
   createdAt,
   assetType,
+  previewImageUrl,
   selectMode = false,
   isSelected = false,
   onToggleSelect,
 }: SessionCardProps) {
   const router = useRouter();
-  const isFailed = status === "failed";
-  const isComplete = status === "complete" || status === "delivered" || status === "direction_selected";
+  const statusEntry = STATUS_CONFIG[status] ?? { label: status, color: "#71717a" };
+  const isInProgress =
+    status === "interpreting" ||
+    status === "generating_directions" ||
+    status === "generating_images" ||
+    status === "evaluating" ||
+    status === "packaging" ||
+    status === "paid";
+
+  const config = assetType ? ASSET_TYPES[assetType as AssetTypeId] : null;
+
+  // Determine aspect ratio CSS class based on asset type
+  const aspectClass =
+    config?.aspectRatio === "9:16"
+      ? "aspect-[9/16]"
+      : config?.aspectRatio === "2:3"
+        ? "aspect-[2/3]"
+        : "aspect-square";
 
   return (
     <button
@@ -108,75 +106,96 @@ export function SessionCard({
           router.push(`/generate/${id}`);
         }
       }}
-      className={`flex w-full items-center gap-4 rounded-lg border border-transparent p-3 text-left transition-all duration-[var(--duration-fast)] hover:border-[var(--border)] hover:bg-[var(--background-overlay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${
-        isSelected ? "bg-[var(--background-overlay)]" : ""
+      className={`group relative flex flex-col overflow-hidden rounded-xl border transition-all duration-300 ${
+        isSelected
+          ? "border-white/40 ring-2 ring-white/20"
+          : "border-[var(--border)] hover:border-[#3f3f46]"
       }`}
     >
-      {/* Checkbox in select mode */}
+      {/* Select checkbox */}
       {selectMode && (
-        <div
-          className={`flex size-5 shrink-0 items-center justify-center rounded border transition-colors ${
-            isSelected
-              ? "border-[var(--accent)] bg-[var(--accent)]"
-              : "border-[var(--border)]"
-          }`}
-        >
-          {isSelected && (
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M2.5 6L5 8.5L9.5 3.5" stroke="var(--background)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
+        <div className="absolute left-3 top-3 z-20">
+          <div
+            className={`flex size-5 items-center justify-center rounded-full border-2 transition-colors ${
+              isSelected
+                ? "border-white bg-white"
+                : "border-white/50 bg-black/40 backdrop-blur-sm"
+            }`}
+          >
+            {isSelected && (
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                <path
+                  d="M2.5 6L5 8.5L9.5 3.5"
+                  stroke="#09090b"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Thumbnail */}
-      <div
-        className="size-20 shrink-0 rounded-[var(--radius-md)] border border-[var(--border)]"
-        style={{ background: briefToGradient(briefText) }}
-      />
-
-      {/* Content */}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm text-[var(--foreground-muted)]">
-          {truncate(briefText, 60)}
-        </p>
-        {assetType && (
-          <p className="mt-0.5 text-xs text-[var(--foreground-subtle)]">
-            {ASSET_TYPES[assetType as AssetTypeId]?.label ?? "Release Artwork"}
-          </p>
+      {/* Image area */}
+      <div className={`relative w-full overflow-hidden bg-[var(--background-elevated)] ${aspectClass}`}>
+        {previewImageUrl ? (
+          <img
+            src={previewImageUrl}
+            alt=""
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div
+            className="h-full w-full"
+            style={{ background: briefToGradient(briefText) }}
+          />
         )}
-        <p className={`mt-1 flex items-center text-sm ${isFailed ? "text-red-400" : "text-[var(--foreground)]"}`}>
-          {(() => {
-            const statusEntry = STATUS_ICONS[status];
-            if (!statusEntry) return null;
-            const IconComponent = statusEntry.icon;
-            return (
-              <IconComponent
-                className={`mr-1.5 size-3.5 ${statusEntry.spin ? "animate-spin" : ""}`}
+
+        {/* Gradient overlay at bottom for text readability */}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+        {/* Status badge */}
+        <div className="absolute right-3 top-3 z-10">
+          <div
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium backdrop-blur-md"
+            style={{
+              backgroundColor: `${statusEntry.color}20`,
+              color: statusEntry.color,
+              border: `1px solid ${statusEntry.color}30`,
+            }}
+          >
+            {statusEntry.icon && (
+              <statusEntry.icon
+                className={`size-3 ${statusEntry.spin ? "animate-spin" : ""}`}
               />
-            );
-          })()}
-          {STATUS_LABELS[status] ?? status}
-        </p>
-        <p className="mt-1 text-xs text-[var(--foreground-subtle)]">
-          {formatRelativeDate(createdAt)}
-        </p>
+            )}
+            {statusEntry.label}
+          </div>
+        </div>
+
+        {/* In-progress shimmer overlay */}
+        {isInProgress && !previewImageUrl && (
+          <div className="absolute inset-0 animate-pulse bg-white/[0.02]" />
+        )}
+
+        {/* Bottom text overlay */}
+        <div className="absolute inset-x-0 bottom-0 z-10 p-3">
+          <p className="line-clamp-2 text-[13px] leading-snug text-white/90">
+            {briefText}
+          </p>
+        </div>
       </div>
 
-      {/* Status indicator */}
-      {!selectMode && (
-        <div
-          className="size-2 shrink-0 rounded-full"
-          style={{
-            backgroundColor: isFailed
-              ? "#ef4444"
-              : isComplete
-                ? "var(--success)"
-                : "#eab308",
-          }}
-          aria-label={isFailed ? "Failed" : isComplete ? "Completed" : "In progress"}
-        />
-      )}
+      {/* Footer */}
+      <div className="flex items-center justify-between bg-[var(--background-elevated)]/80 px-3 py-2">
+        <span className="text-[11px] text-[var(--foreground-subtle)]">
+          {config?.label ?? "Release Artwork"}
+        </span>
+        <span className="text-[11px] text-[var(--foreground-subtle)]">
+          {formatRelativeDate(createdAt)}
+        </span>
+      </div>
     </button>
   );
 }
