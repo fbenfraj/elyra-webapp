@@ -1,4 +1,3 @@
-// src/server/services/moodboard.ts
 import "server-only";
 
 import { db } from "@/server/db";
@@ -6,13 +5,13 @@ import { moodboards } from "@/server/db/schema/moodboards";
 import { moodboardAnchors } from "@/server/db/schema/moodboard-anchors";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { getSignedImageUrl } from "@/server/services/storage";
-import type { ExplorationDirection, MoodboardSpec } from "@/lib/schemas/moodboard";
+import type { ExplorationDirection, MoodboardSpec, MoodboardStatus } from "@/lib/schemas/moodboard";
 import { MOODBOARD_MAX_ANCHORS } from "@/config/moodboard";
 
 export type MoodboardRow = {
   id: string;
   userId: string;
-  status: string;
+  status: MoodboardStatus;
   spec: MoodboardSpec | null;
   explorationDirections: ExplorationDirection[] | null;
   likedDirectionIds: string[];
@@ -39,9 +38,17 @@ export async function createMoodboard(userId: string): Promise<{ id: string }> {
 
 export async function getActiveMoodboard(
   userId: string
-): Promise<(MoodboardRow & { anchors: MoodboardAnchorWithUrl[] }) | null> {
+): Promise<(Omit<MoodboardRow, "explorationDirections"> & { anchors: MoodboardAnchorWithUrl[] }) | null> {
   const [row] = await db
-    .select()
+    .select({
+      id: moodboards.id,
+      userId: moodboards.userId,
+      status: moodboards.status,
+      spec: moodboards.spec,
+      likedDirectionIds: moodboards.likedDirectionIds,
+      createdAt: moodboards.createdAt,
+      updatedAt: moodboards.updatedAt,
+    })
     .from(moodboards)
     .where(and(eq(moodboards.userId, userId), eq(moodboards.status, "complete")))
     .orderBy(desc(moodboards.updatedAt))
@@ -54,9 +61,8 @@ export async function getActiveMoodboard(
   return {
     id: row.id,
     userId: row.userId,
-    status: row.status,
+    status: row.status as MoodboardStatus,
     spec: row.spec as MoodboardSpec | null,
-    explorationDirections: row.explorationDirections as ExplorationDirection[] | null,
     likedDirectionIds: (row.likedDirectionIds as string[]) ?? [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -78,7 +84,7 @@ export async function getMoodboardById(
   return {
     id: row.id,
     userId: row.userId,
-    status: row.status,
+    status: row.status as MoodboardStatus,
     spec: row.spec as MoodboardSpec | null,
     explorationDirections: row.explorationDirections as ExplorationDirection[] | null,
     likedDirectionIds: (row.likedDirectionIds as string[]) ?? [],
@@ -108,21 +114,14 @@ export async function failMoodboard(id: string): Promise<void> {
     .where(eq(moodboards.id, id));
 }
 
-export async function likeDirection(
+async function updateLikedDirectionIds(
   moodboardId: string,
-  directionId: string
+  current: string[],
+  updater: (ids: string[]) => string[]
 ): Promise<string[]> {
-  const [row] = await db
-    .select({ likedDirectionIds: moodboards.likedDirectionIds })
-    .from(moodboards)
-    .where(eq(moodboards.id, moodboardId));
+  const updated = updater(current);
+  if (updated === current) return current;
 
-  if (!row) throw new Error(`Moodboard ${moodboardId} not found`);
-
-  const current = (row.likedDirectionIds as string[]) ?? [];
-  if (current.includes(directionId)) return current;
-
-  const updated = [...current, directionId];
   await db
     .update(moodboards)
     .set({
@@ -134,29 +133,24 @@ export async function likeDirection(
   return updated;
 }
 
+export async function likeDirection(
+  moodboardId: string,
+  directionId: string,
+  current: string[]
+): Promise<string[]> {
+  return updateLikedDirectionIds(moodboardId, current, (ids) =>
+    ids.includes(directionId) ? ids : [...ids, directionId]
+  );
+}
+
 export async function unlikeDirection(
   moodboardId: string,
-  directionId: string
+  directionId: string,
+  current: string[]
 ): Promise<string[]> {
-  const [row] = await db
-    .select({ likedDirectionIds: moodboards.likedDirectionIds })
-    .from(moodboards)
-    .where(eq(moodboards.id, moodboardId));
-
-  if (!row) throw new Error(`Moodboard ${moodboardId} not found`);
-
-  const current = (row.likedDirectionIds as string[]) ?? [];
-  const updated = current.filter((id) => id !== directionId);
-
-  await db
-    .update(moodboards)
-    .set({
-      likedDirectionIds: updated as unknown as Record<string, unknown>,
-      updatedAt: sql`now()`,
-    })
-    .where(eq(moodboards.id, moodboardId));
-
-  return updated;
+  return updateLikedDirectionIds(moodboardId, current, (ids) =>
+    ids.filter((id) => id !== directionId)
+  );
 }
 
 export async function transitionToRefining(moodboardId: string): Promise<void> {
@@ -179,17 +173,6 @@ export async function completeMoodboard(
   likedDirectionIds: string[],
   directions: ExplorationDirection[]
 ): Promise<void> {
-  // Save spec and transition status
-  await db
-    .update(moodboards)
-    .set({
-      spec: spec as unknown as Record<string, unknown>,
-      status: "complete",
-      updatedAt: sql`now()`,
-    })
-    .where(eq(moodboards.id, moodboardId));
-
-  // Create anchors from top-liked direction images (max 3, ranked by like order)
   const anchorDirectionIds = likedDirectionIds.slice(0, MOODBOARD_MAX_ANCHORS);
   const anchorValues = anchorDirectionIds
     .map((dirId, index) => {
@@ -204,9 +187,20 @@ export async function completeMoodboard(
     })
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
-  if (anchorValues.length > 0) {
-    await db.insert(moodboardAnchors).values(anchorValues);
-  }
+  await db.transaction(async (tx) => {
+    await tx
+      .update(moodboards)
+      .set({
+        spec: spec as unknown as Record<string, unknown>,
+        status: "complete",
+        updatedAt: sql`now()`,
+      })
+      .where(eq(moodboards.id, moodboardId));
+
+    if (anchorValues.length > 0) {
+      await tx.insert(moodboardAnchors).values(anchorValues);
+    }
+  });
 }
 
 export async function getAnchors(

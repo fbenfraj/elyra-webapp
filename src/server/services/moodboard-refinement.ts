@@ -3,20 +3,19 @@ import "server-only";
 
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { getMoodboardById } from "@/server/services/moodboard";
 import { getUserSettings } from "@/server/services/user";
 import { getCachedArtist } from "@/server/services/spotify-sync";
 import { moodboardSpecSchema } from "@/lib/schemas/moodboard";
-import type { MoodboardSpec, PaletteNudge } from "@/lib/schemas/moodboard";
+import type { ExplorationDirection, MoodboardSpec, PaletteNudge } from "@/lib/schemas/moodboard";
 import { MOODBOARD_REFINEMENT_MODEL, MOODBOARD_REFINEMENT_SYSTEM_PROMPT } from "@/config/moodboard";
 
 export async function computeRefinementDefaults(
-  moodboardId: string,
+  moodboard: {
+    explorationDirections: ExplorationDirection[] | null;
+    likedDirectionIds: string[];
+  },
   userId: string
 ): Promise<{ spec: MoodboardSpec; costCents: number }> {
-  // Step 1: Load moodboard with liked directions
-  const moodboard = await getMoodboardById(moodboardId, userId);
-  if (!moodboard) throw new Error(`Moodboard ${moodboardId} not found`);
   if (!moodboard.explorationDirections) throw new Error("No exploration directions found");
 
   const directions = moodboard.explorationDirections;
@@ -91,7 +90,6 @@ export async function computeRefinementDefaults(
 
   console.info(JSON.stringify({
     event: "moodboard_refinement_complete",
-    moodboardId,
     userId,
     costCents,
   }));
