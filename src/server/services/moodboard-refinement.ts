@@ -30,15 +30,16 @@ export async function computeRefinementDefaults(
   // Step 2: Load Spotify artist context
   const settings = await getUserSettings(userId);
   let artistContext = "";
+  let cachedArtist: Awaited<ReturnType<typeof getCachedArtist>> = null;
   if (settings.artistId) {
     try {
-      const artist = await getCachedArtist(settings.artistId);
-      if (artist) {
+      cachedArtist = await getCachedArtist(settings.artistId);
+      if (cachedArtist) {
         const parts: string[] = [];
-        parts.push(`Artist: ${artist.name}`);
-        if (artist.genres?.length) parts.push(`Genres: ${artist.genres.join(", ")}`);
-        if (artist.audioProfile) {
-          const ap = artist.audioProfile;
+        parts.push(`Artist: ${cachedArtist.name}`);
+        if (cachedArtist.genres?.length) parts.push(`Genres: ${cachedArtist.genres.join(", ")}`);
+        if (cachedArtist.audioProfile) {
+          const ap = cachedArtist.audioProfile;
           parts.push(`Audio: energy=${ap.energy.toFixed(2)}, valence=${ap.valence.toFixed(2)}, acousticness=${ap.acousticness.toFixed(2)}, tempo=${ap.tempo.toFixed(0)}BPM`);
         }
         artistContext = parts.join("\n");
@@ -72,26 +73,19 @@ export async function computeRefinementDefaults(
   const costCents = Math.round((inputCost + outputCost) * 100) / 100;
 
   // Step 5: Apply audio profile nudges to palette
-  if (settings.artistId) {
-    try {
-      const artist = await getCachedArtist(settings.artistId);
-      if (artist?.audioProfile) {
-        const ap = artist.audioProfile;
-        // Low valence → darker
-        if (ap.valence < 0.4) {
-          spec.palette = applyPaletteNudge(spec.palette, "darker");
-        }
-        // High energy → more saturated
-        if (ap.energy > 0.7) {
-          spec.palette = applyPaletteNudge(spec.palette, "more_vibrant");
-        }
-        // High acousticness → warmer/more muted
-        if (ap.acousticness > 0.6) {
-          spec.palette = applyPaletteNudge(spec.palette, "warmer");
-        }
-      }
-    } catch {
-      // Continue with un-nudged palette
+  if (cachedArtist?.audioProfile) {
+    const ap = cachedArtist.audioProfile;
+    // Low valence → darker
+    if (ap.valence < 0.4) {
+      spec.palette = applyPaletteNudge(spec.palette, "darker");
+    }
+    // High energy → more saturated
+    if (ap.energy > 0.7) {
+      spec.palette = applyPaletteNudge(spec.palette, "more_vibrant");
+    }
+    // High acousticness → warmer/more muted
+    if (ap.acousticness > 0.6) {
+      spec.palette = applyPaletteNudge(spec.palette, "warmer");
     }
   }
 

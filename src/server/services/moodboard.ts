@@ -166,6 +166,13 @@ export async function transitionToRefining(moodboardId: string): Promise<void> {
     .where(eq(moodboards.id, moodboardId));
 }
 
+export async function revertToExploring(moodboardId: string): Promise<void> {
+  await db
+    .update(moodboards)
+    .set({ status: "exploring", updatedAt: sql`now()` })
+    .where(eq(moodboards.id, moodboardId));
+}
+
 export async function completeMoodboard(
   moodboardId: string,
   spec: MoodboardSpec,

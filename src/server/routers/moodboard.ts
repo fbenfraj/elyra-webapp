@@ -11,6 +11,7 @@ import {
   likeDirection,
   unlikeDirection,
   transitionToRefining,
+  revertToExploring,
   completeMoodboard,
 } from "@/server/services/moodboard";
 import { computeRefinementDefaults, applyPaletteNudge } from "@/server/services/moodboard-refinement";
@@ -110,9 +111,17 @@ export const moodboardRouter = createTRPCRouter({
       await transitionToRefining(input.moodboardId);
 
       // Compute refinement defaults via LLM synthesis
-      const { spec } = await computeRefinementDefaults(input.moodboardId, ctx.user.id);
-
-      return spec;
+      // If LLM fails, revert to exploring so user can retry
+      try {
+        const { spec } = await computeRefinementDefaults(input.moodboardId, ctx.user.id);
+        return spec;
+      } catch (error) {
+        await revertToExploring(input.moodboardId);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to compute refinement defaults. Please try again.",
+        });
+      }
     }),
 
   complete: authedProcedure

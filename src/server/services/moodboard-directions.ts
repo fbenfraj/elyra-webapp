@@ -78,7 +78,7 @@ export async function generateMoodboardDirections(
     const directions: ExplorationDirection[] = await Promise.all(
       llmOutput.directions.map(async (dir, index) => {
         const dirId = `${moodboardId}-dir-${index}`;
-        const imageKey = `moodboards/${moodboardId}/directions/${index}/hero.webp`;
+        const imageKey = `moodboards/${moodboardId}/directions/${index}/hero.png`;
 
         let imageUrl: string;
         let imageCost: number;
@@ -93,7 +93,7 @@ export async function generateMoodboardDirections(
               prompt: fullPrompt,
               image_urls: referenceImageUrls,
               num_images: 1,
-              output_format: "jpeg",
+              output_format: "png",
               guidance_scale: AUTO_REFERENCE_GUIDANCE_SCALE,
             },
           });

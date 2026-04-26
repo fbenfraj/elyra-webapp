@@ -1,8 +1,6 @@
 // src/config/moodboard.ts
 import "server-only";
 
-export const MOODBOARD_DIRECTION_COUNT = 6;
-
 export const MOODBOARD_DIRECTION_MODEL = "gpt-4.1" as const;
 export const MOODBOARD_REFINEMENT_MODEL = "gpt-4.1" as const;
 
