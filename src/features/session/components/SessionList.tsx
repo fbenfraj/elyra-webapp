@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { Sparkles, Palette, Download, Plus, Music2, Disc3, ArrowRight } from "lucide-react";
+import { MoodboardDashboardPrompt } from "@/features/moodboard/components/MoodboardDashboardPrompt";
 import { Button } from "@/components/ui/button";
 import { SessionCard } from "@/features/session/components/SessionCard";
 import {
@@ -287,6 +288,10 @@ export function SessionList() {
     trpc.user.settings.queryOptions()
   );
 
+  const { data: activeMoodboard } = useQuery(
+    trpc.moodboard.active.queryOptions()
+  );
+
   const deleteSession = useMutation(
     trpc.session.delete.mutationOptions({
       onSuccess: () => {
@@ -394,6 +399,13 @@ export function SessionList() {
           </AnimatedDashboardItem>
         )}
 
+        {/* Moodboard prompt for empty state */}
+        {userSettings?.artistId && !activeMoodboard && (
+          <AnimatedDashboardItem>
+            <MoodboardDashboardPrompt compact />
+          </AnimatedDashboardItem>
+        )}
+
         {/* CTA */}
         <AnimatedDashboardItem>
           <motion.button
@@ -413,16 +425,19 @@ export function SessionList() {
   return (
     <AnimatedDashboardContainer>
       {/* Artist hero section — or setup prompt if no artist linked */}
-      {userSettings?.artistName ? (
-        <ArtistHero
-          artistName={userSettings.artistName}
-          artistImageUrl={userSettings.artistImageUrl}
-          artistGenres={userSettings.artistGenres}
-          sessionCount={sessions.length}
-        />
-      ) : userSettings && !userSettings.artistId ? (
-        <SpotifySetupPrompt />
-      ) : null}
+      {(() => {
+        if (!userSettings) return null;
+        if (!userSettings.artistId) return <SpotifySetupPrompt />;
+        if (!activeMoodboard) return <MoodboardDashboardPrompt />;
+        return (
+          <ArtistHero
+            artistName={userSettings.artistName!}
+            artistImageUrl={userSettings.artistImageUrl}
+            artistGenres={userSettings.artistGenres}
+            sessionCount={sessions.length}
+          />
+        );
+      })()}
 
       {/* Header with actions */}
       <AnimatedDashboardItem>

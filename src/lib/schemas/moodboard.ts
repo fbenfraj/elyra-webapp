@@ -29,6 +29,9 @@ export const explorationDirectionSchema = z.object({
 
 export type ExplorationDirection = z.infer<typeof explorationDirectionSchema>;
 
+/** ExplorationDirection augmented with a signed hero image URL (added by the router). */
+export type DirectionWithUrl = ExplorationDirection & { heroImageUrl: string };
+
 // --- LLM direction output (before image generation, no imageKey yet) ---
 
 export const directionLLMOutputSchema = z.object({

@@ -1,0 +1,2 @@
+export const MOODBOARD_POLL_INTERVAL_MS = 3_000;
+export const MOODBOARD_DIRECTION_COUNT = 6;

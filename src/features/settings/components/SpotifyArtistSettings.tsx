@@ -6,12 +6,14 @@ import { useTRPC } from "@/lib/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SpotifyArtistSearch } from "@/features/settings/components/SpotifyArtistSearch";
+import { useRouter } from "next/navigation";
 
 type SearchResult = { id: string; name: string; imageUrl: string | null };
 
 export function SpotifyArtistSettings() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { data: settings, isLoading } = useQuery(
     trpc.user.settings.queryOptions()
@@ -35,6 +37,10 @@ export function SpotifyArtistSettings() {
           queryKey: trpc.user.settings.queryKey(),
         });
         toast.success("Artist saved");
+        const cached = queryClient.getQueryData(trpc.moodboard.active.queryKey());
+        if (!cached) {
+          router.push("/onboarding/moodboard");
+        }
       },
     })
   );
