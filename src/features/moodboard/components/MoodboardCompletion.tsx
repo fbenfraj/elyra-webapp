@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { Check } from "lucide-react";
 import type { MoodboardSpec } from "@/lib/schemas/moodboard";
+import { MoodboardSpecSummary } from "@/features/moodboard/components/MoodboardSpecSummary";
 
 export function MoodboardCompletion({
   spec,
@@ -33,36 +34,8 @@ export function MoodboardCompletion({
         </p>
       </div>
 
-      {/* Creative direction summary */}
-      <div className="w-full rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-        <p className="text-sm font-medium text-zinc-300">{spec.coreIdea}</p>
-        <p className="mt-1 text-xs text-zinc-500 italic">{spec.duality}</p>
-        <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-          {spec.narrative}
-        </p>
-
-        {/* Palette + tags */}
-        <div className="mt-5 flex items-center gap-4">
-          <div className="flex gap-1.5">
-            {spec.palette.map((hex, i) => (
-              <div
-                key={i}
-                className="size-7 rounded-lg border border-zinc-700/50"
-                style={{ backgroundColor: hex }}
-              />
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {spec.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] text-zinc-500"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
+      <div className="w-full space-y-5 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+        <MoodboardSpecSummary spec={spec} />
       </div>
 
       {/* CTA */}
