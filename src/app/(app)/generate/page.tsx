@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useTRPC } from "@/lib/trpc/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { BriefInput } from "@/features/generation/components/BriefInput";
 import type { AssetTypeId } from "@/config/asset-types";
 
@@ -28,6 +28,10 @@ export default function GeneratePage() {
   }, [searchParams, router]);
 
   const trpc = useTRPC();
+
+  const { data: activeMoodboard } = useQuery(
+    trpc.moodboard.active.queryOptions()
+  );
 
   const createSession = useMutation(
     trpc.session.create.mutationOptions({
@@ -55,6 +59,7 @@ export default function GeneratePage() {
         isSubmitting={createSession.isPending}
         defaultAssetType={companionType ?? undefined}
         defaultText={companionBrief ?? undefined}
+        hasMoodboard={!!activeMoodboard}
       />
     </div>
   );

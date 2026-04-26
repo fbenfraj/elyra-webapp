@@ -17,6 +17,8 @@ import { getSignedImageUrl } from "@/server/services/storage";
 import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
 import { getAssetTypeConfig } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
+import { getActiveMoodboard } from "@/server/services/moodboard";
+import type { MoodboardSpec } from "@/lib/schemas/moodboard";
 
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_REFERENCE_ALBUMS = 5;
@@ -67,31 +69,39 @@ function buildArtistContext(artist: {
 }
 
 /**
+ * Build a moodboard context string for the LLM to use as a default aesthetic baseline.
+ * The brief can override any aspect — the moodboard is defaults, not constraints.
+ */
+export function buildMoodboardContext(spec: MoodboardSpec): string {
+  const parts: string[] = [];
+  parts.push("VISUAL IDENTITY (default aesthetic — the brief below can override any aspect):");
+  parts.push(`Core direction: ${spec.coreIdea}`);
+  parts.push(`Creative tension: ${spec.duality}`);
+  parts.push(`Narrative: ${spec.narrative}`);
+  parts.push(`Palette: ${spec.palette.join(", ")}`);
+  parts.push(`Textures: ${spec.textures.join(", ")}`);
+  parts.push(`Environment: ${spec.environment.join(", ")}`);
+  parts.push(`Styling: ${spec.styling.join(", ")}`);
+  parts.push(`Lighting: ${spec.lighting}`);
+
+  if (spec.culturalReferences.length > 0) {
+    parts.push(`Cultural references: ${spec.culturalReferences.join(", ")}`);
+  }
+
+  return parts.join("\n");
+}
+
+/**
  * Copy pre-downloaded R2 images from artist_albums into session reference_images.
  */
 async function copyArtistReferences(
   sessionId: string,
   artistId: string,
-  profileR2Key: string | null
+  profileR2Key: string | null,
+  startPosition: number = 0
 ): Promise<number> {
   const rows: (typeof referenceImages.$inferInsert)[] = [];
-  let position = 0;
-
-  // Profile image
-  if (profileR2Key) {
-    const signedUrl = await getSignedImageUrl(profileR2Key);
-    rows.push({
-      sessionId,
-      type: "profile",
-      source: "spotify",
-      sourceUrl: signedUrl,
-      r2Key: profileR2Key,
-      width: 640,
-      height: 640,
-      position,
-    });
-    position++;
-  }
+  let position = startPosition;
 
   // Most recent album covers with R2 keys
   const albums = await db
@@ -104,15 +114,29 @@ async function copyArtistReferences(
     .orderBy(desc(artistAlbums.releaseDate))
     .limit(MAX_REFERENCE_ALBUMS);
 
+  // Collect all R2 keys that need signed URLs
+  const keysToSign: Array<{ r2Key: string; type: string }> = [];
+  if (profileR2Key) {
+    keysToSign.push({ r2Key: profileR2Key, type: "profile" });
+  }
   for (const album of albums) {
-    if (!album.r2Key) continue;
-    const signedUrl = await getSignedImageUrl(album.r2Key);
+    if (album.r2Key) {
+      keysToSign.push({ r2Key: album.r2Key, type: "cover" });
+    }
+  }
+
+  // Sign all URLs in parallel
+  const signedUrls = await Promise.all(
+    keysToSign.map((k) => getSignedImageUrl(k.r2Key))
+  );
+
+  for (let i = 0; i < keysToSign.length; i++) {
     rows.push({
       sessionId,
-      type: "cover",
+      type: keysToSign[i].type,
       source: "spotify",
-      sourceUrl: signedUrl,
-      r2Key: album.r2Key,
+      sourceUrl: signedUrls[i],
+      r2Key: keysToSign[i].r2Key,
       width: 640,
       height: 640,
       position,
@@ -124,6 +148,34 @@ async function copyArtistReferences(
     await db.insert(referenceImages).values(rows);
   }
 
+  return rows.length;
+}
+
+/**
+ * Copy moodboard anchor images into session reference_images.
+ * Anchors are placed at the lowest positions so they appear first in the reference array.
+ */
+async function copyMoodboardAnchors(
+  sessionId: string,
+  anchors: Array<{ imageKey: string; imageUrl: string }>,
+  startPosition: number
+): Promise<number> {
+  if (anchors.length === 0) return 0;
+
+  const rows: (typeof referenceImages.$inferInsert)[] = anchors.map(
+    (anchor, i) => ({
+      sessionId,
+      type: "anchor",
+      source: "moodboard",
+      sourceUrl: anchor.imageUrl,
+      r2Key: anchor.imageKey,
+      width: 1024,
+      height: 1024,
+      position: startPosition + i,
+    })
+  );
+
+  await db.insert(referenceImages).values(rows);
   return rows.length;
 }
 
@@ -155,29 +207,51 @@ export async function runInterpretation(
   // Step 2: Update session status to 'interpreting'
   await updateSessionStatus(sessionId, "interpreting");
 
-  // Step 3: Load artist context for LLM enrichment
+  // Step 3: Load artist context + moodboard in parallel
   let artistContext: string | null = null;
   let artistId: string | null = null;
   let profileR2Key: string | null = null;
+  let moodboardContext: string | null = null;
+  let moodboardAnchors: Array<{ imageKey: string; imageUrl: string }> = [];
 
-  const settings = await getUserSettings(userId);
-  if (settings.artistId) {
-    try {
-      const artist = await getCachedArtist(settings.artistId);
-      if (artist) {
-        artistId = artist.id;
-        profileR2Key = artist.profileR2Key;
-        artistContext = buildArtistContext(artist);
+  const [, moodboard] = await Promise.all([
+    // Artist context
+    (async () => {
+      const settings = await getUserSettings(userId);
+      if (!settings.artistId) return;
+      try {
+        const artist = await getCachedArtist(settings.artistId);
+        if (artist) {
+          artistId = artist.id;
+          profileR2Key = artist.profileR2Key;
+          artistContext = buildArtistContext(artist);
+        }
+      } catch (error) {
+        console.warn(
+          JSON.stringify({
+            event: "artist_context_skipped",
+            sessionId,
+            detail: error instanceof Error ? error.message : String(error),
+          })
+        );
       }
-    } catch (error) {
+    })(),
+    // Moodboard context
+    getActiveMoodboard(userId).catch((error) => {
       console.warn(
         JSON.stringify({
-          event: "artist_context_skipped",
+          event: "moodboard_context_skipped",
           sessionId,
           detail: error instanceof Error ? error.message : String(error),
         })
       );
-    }
+      return null;
+    }),
+  ]);
+
+  if (moodboard?.spec) {
+    moodboardContext = buildMoodboardContext(moodboard.spec);
+    moodboardAnchors = moodboard.anchors;
   }
 
   // Step 4: LLM interpretation
@@ -185,9 +259,17 @@ export async function runInterpretation(
     const assetConfig = getAssetTypeConfig(assetType as AssetTypeId);
     const assetPrefix = `[Asset type: ${assetConfig.label}]\n${assetConfig.interpretationContext}\n\n`;
 
-    const promptWithContext = artistContext
-      ? `${assetPrefix}${briefText}\n\n---\nArtist context (use this to inform visual choices like color palette, mood, and style):\n${artistContext}`
-      : `${assetPrefix}${briefText}`;
+    let promptWithContext = `${assetPrefix}${briefText}`;
+
+    // Moodboard = default aesthetic baseline (prepended so LLM treats it as context, not instruction)
+    if (moodboardContext) {
+      promptWithContext = `${moodboardContext}\n\n---\n${promptWithContext}`;
+    }
+
+    // Artist context = supplementary signal (appended)
+    if (artistContext) {
+      promptWithContext += `\n\n---\nArtist context (use this to inform visual choices like color palette, mood, and style):\n${artistContext}`;
+    }
 
     const result = await executeWithFallback(
       FALLBACK_CHAINS.interpretation,
@@ -221,45 +303,82 @@ export async function runInterpretation(
       };
     }
 
-    // Step 6: Store visual spec
-    await storeVisualSpec(sessionId, response.spec);
+    // Step 6+7: Store visual spec and update status in parallel
+    await Promise.all([
+      storeVisualSpec(sessionId, response.spec),
+      updateSessionStatus(sessionId, "generating_directions"),
+    ]);
 
-    // Step 7: Update session status to 'generating_directions'
-    await updateSessionStatus(sessionId, "generating_directions");
-
-    // Step 8: Copy pre-downloaded reference images from artist cache
-    // Skip if user already selected references for this session
+    // Step 8: Copy reference images for Kontext Multi conditioning
+    // Priority: user-selected > moodboard anchors + Spotify auto
     const [hasUserSelections] = await db
       .select({ id: sessionReferenceSelections.sessionId })
       .from(sessionReferenceSelections)
       .where(eq(sessionReferenceSelections.sessionId, sessionId))
       .limit(1);
 
-    if (!hasUserSelections && artistId) {
-      try {
-        const copied = await copyArtistReferences(
-          sessionId,
-          artistId,
-          profileR2Key
-        );
-        console.info(
-          JSON.stringify({
-            event: "references_copied",
+    if (!hasUserSelections) {
+      let totalCopied = 0;
+
+      // Moodboard anchors first (lowest positions)
+      if (moodboardAnchors.length > 0) {
+        try {
+          const anchorCount = await copyMoodboardAnchors(
             sessionId,
-            count: copied,
-            mode: "auto_spotify",
-          })
-        );
-      } catch (error) {
-        console.warn(
-          JSON.stringify({
-            event: "reference_copy_failed",
-            sessionId,
-            detail: error instanceof Error ? error.message : String(error),
-          })
-        );
+            moodboardAnchors,
+            0
+          );
+          totalCopied += anchorCount;
+          console.info(
+            JSON.stringify({
+              event: "references_copied",
+              sessionId,
+              count: anchorCount,
+              mode: "moodboard_anchors",
+            })
+          );
+        } catch (error) {
+          console.warn(
+            JSON.stringify({
+              event: "reference_copy_failed",
+              sessionId,
+              source: "moodboard",
+              detail: error instanceof Error ? error.message : String(error),
+            })
+          );
+        }
       }
-    } else if (hasUserSelections) {
+
+      // Spotify images after moodboard anchors (higher positions)
+      if (artistId) {
+        try {
+          const copied = await copyArtistReferences(
+            sessionId,
+            artistId,
+            profileR2Key,
+            totalCopied
+          );
+          totalCopied += copied;
+          console.info(
+            JSON.stringify({
+              event: "references_copied",
+              sessionId,
+              count: copied,
+              mode: "auto_spotify",
+            })
+          );
+        } catch (error) {
+          console.warn(
+            JSON.stringify({
+              event: "reference_copy_failed",
+              sessionId,
+              source: "spotify",
+              detail: error instanceof Error ? error.message : String(error),
+            })
+          );
+        }
+      }
+    } else {
       console.info(
         JSON.stringify({
           event: "references_skipped_user_selected",

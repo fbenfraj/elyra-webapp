@@ -20,11 +20,13 @@ export function BriefInput({
   isSubmitting,
   defaultAssetType,
   defaultText,
+  hasMoodboard,
 }: {
   onSubmit: (assetType: AssetTypeId, text?: string, referenceIds?: string[]) => void;
   isSubmitting: boolean;
   defaultAssetType?: AssetTypeId;
   defaultText?: string;
+  hasMoodboard?: boolean;
 }) {
   const [text, setText] = useState(defaultText ?? "");
   const [selectedType, setSelectedType] = useState<AssetTypeId>(
@@ -115,7 +117,9 @@ export function BriefInput({
             Describe your vision
           </h1>
           <p className="text-sm text-[var(--foreground-muted)]">
-            Tell us about the mood, genre, and aesthetic you're going for
+            {hasMoodboard
+              ? "What's this release about? Your visual identity handles the style"
+              : "Tell us about the mood, genre, and aesthetic you're going for"}
           </p>
         </div>
       </AnimatedDashboardItem>
@@ -166,7 +170,9 @@ export function BriefInput({
             }}
           />
           <p className="mt-2 text-center text-xs text-[var(--foreground-subtle)]">
-            Optional — we'll use your artist profile
+            {hasMoodboard
+              ? "Optional — style is handled by your visual identity"
+              : "Optional — we'll use your artist profile"}
           </p>
           <div className="mt-4">
             <ReferencePicker

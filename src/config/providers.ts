@@ -45,6 +45,15 @@ Reference image roles:
 Generate the following:
 ` as const;
 
+export const KONTEXT_REFERENCE_PREFIX_MOODBOARD = `You are generating an image using reference images for visual grounding.
+
+Reference image roles:
+- Moodboard anchor images (first): Use these as the PRIMARY style guide — match their visual aesthetic, color palette, mood, and composition
+- Artist images (after): Use these for artist identity grounding — preserve the visual identity and persona
+
+Generate the following:
+` as const;
+
 export const KONTEXT_REFERENCE_PREFIX_TWO = `You are generating an image using reference images for visual grounding.
 
 Reference image roles:
@@ -74,7 +83,11 @@ export const USER_SELECTED_REFERENCE_PREFIX = `Using the provided reference imag
 Generate the following:
 ` as const;
 
-export function getKontextReferencePrefix(imageCount: number): string {
+export function getKontextReferencePrefix(
+  imageCount: number,
+  hasMoodboardAnchors: boolean = false
+): string {
+  if (hasMoodboardAnchors) return KONTEXT_REFERENCE_PREFIX_MOODBOARD;
   if (imageCount >= 3) return KONTEXT_REFERENCE_PREFIX_FULL;
   if (imageCount === 2) return KONTEXT_REFERENCE_PREFIX_TWO;
   return KONTEXT_REFERENCE_PREFIX_ONE;

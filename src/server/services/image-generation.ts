@@ -26,7 +26,7 @@ import {
   AUTO_REFERENCE_GUIDANCE_SCALE,
 } from "@/config/providers";
 import { sessionReferenceSelections } from "@/server/db/schema/session-reference-selections";
-import { getSessionReferenceUrls } from "@/server/services/reference-images";
+import { getSessionReferencesWithUrls } from "@/server/services/reference-images";
 import type { TaskResult } from "@/types/task";
 import type { EvaluationResult } from "@/lib/schemas/evaluation";
 
@@ -226,8 +226,8 @@ export async function generateImages(
     // Step 5: Generate batch of images
     const basePrompt = promptOverride ?? buildPrompt(direction, assetConfig.promptSuffix);
 
-    // Fetch reference image URLs for Kontext Multi conditioning
-    const referenceUrls = await getSessionReferenceUrls(sessionId);
+    // Fetch reference images with URLs and metadata in a single DB call
+    const { urls: referenceUrls, hasMoodboardAnchors } = await getSessionReferencesWithUrls(sessionId);
 
     // Determine if user explicitly selected references
     let isUserSelected = false;
@@ -245,7 +245,7 @@ export async function generateImages(
       : AUTO_REFERENCE_GUIDANCE_SCALE;
     const referencePrefix = isUserSelected
       ? USER_SELECTED_REFERENCE_PREFIX
-      : getKontextReferencePrefix(referenceUrls.length);
+      : getKontextReferencePrefix(referenceUrls.length, hasMoodboardAnchors);
 
     const imageOptions = {
       width: assetConfig.width,

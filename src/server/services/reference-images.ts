@@ -173,15 +173,19 @@ export async function getSessionReferences(
 }
 
 /**
- * Get signed R2 URLs for a session's reference images, ordered by position.
+ * Get reference images with signed URLs and metadata in a single DB call.
+ * Use this when you need both URLs and row metadata (e.g. source/type).
  */
-export async function getSessionReferenceUrls(
+export async function getSessionReferencesWithUrls(
   sessionId: string
-): Promise<string[]> {
+): Promise<{ refs: ReferenceImageRow[]; urls: string[]; hasMoodboardAnchors: boolean }> {
   const refs = await getSessionReferences(sessionId);
-  if (refs.length === 0) return [];
+  if (refs.length === 0) return { refs: [], urls: [], hasMoodboardAnchors: false };
 
-  return Promise.all(refs.map((ref) => getSignedImageUrl(ref.r2Key)));
+  const urls = await Promise.all(refs.map((ref) => getSignedImageUrl(ref.r2Key)));
+  const hasMoodboardAnchors = refs.some((r) => r.source === "moodboard");
+
+  return { refs, urls, hasMoodboardAnchors };
 }
 
 /**

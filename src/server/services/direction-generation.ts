@@ -11,7 +11,9 @@ import { eq, desc } from "drizzle-orm";
 import { getImageAdapter } from "@/server/services/provider-routing";
 import { uploadImageFromUrl, getSignedImageUrl } from "@/server/services/storage";
 import { updateSessionStatus, failSession } from "@/server/services/session";
-import { getSessionReferenceUrls } from "@/server/services/reference-images";
+import { getSessionReferencesWithUrls } from "@/server/services/reference-images";
+import { getActiveMoodboard } from "@/server/services/moodboard";
+import { buildMoodboardContext } from "@/server/services/interpretation";
 import {
   getKontextReferencePrefix,
   USER_SELECTED_REFERENCE_PREFIX,
@@ -140,8 +142,8 @@ export async function generateDirections(
       (sessionRow?.assetType ?? "release_artwork") as AssetTypeId
     );
 
-    // Fetch reference image URLs for Kontext Multi conditioning
-    const referenceUrls = await getSessionReferenceUrls(sessionId);
+    // Fetch reference images with URLs and metadata in a single DB call
+    const { urls: referenceUrls, hasMoodboardAnchors } = await getSessionReferencesWithUrls(sessionId);
 
     // Determine if user explicitly selected references (vs auto-Spotify)
     let isUserSelected = false;
@@ -154,6 +156,15 @@ export async function generateDirections(
       isUserSelected = !!sel;
     }
 
+    // Load moodboard spec for direction LLM enrichment
+    let moodboardEnrichment = "";
+    if (hasMoodboardAnchors && !isUserSelected) {
+      const moodboard = await getActiveMoodboard(userId);
+      if (moodboard?.spec) {
+        moodboardEnrichment = `\n\n${buildMoodboardContext(moodboard.spec)}`;
+      }
+    }
+
     const guidanceScale = isUserSelected
       ? USER_SELECTED_GUIDANCE_SCALE
       : AUTO_REFERENCE_GUIDANCE_SCALE;
@@ -163,7 +174,7 @@ export async function generateDirections(
       model: openai(DIRECTION_PROMPT_MODEL),
       schema: directionPromptSchema,
       system: buildDirectionSystemPrompt(assetConfig.label, assetConfig.promptSuffix),
-      prompt: JSON.stringify(visualSpec),
+      prompt: JSON.stringify(visualSpec) + moodboardEnrichment,
     });
 
     // Track LLM cost (GPT-4.1: $2/1M input, $8/1M output)
@@ -188,7 +199,7 @@ export async function generateDirections(
         // Generate hero image (with Kontext fallback to text-only)
         const referencePrefix = isUserSelected
           ? USER_SELECTED_REFERENCE_PREFIX
-          : getKontextReferencePrefix(referenceUrls.length);
+          : getKontextReferencePrefix(referenceUrls.length, hasMoodboardAnchors);
         const heroPrompt = referenceUrls.length > 0
           ? referencePrefix + dir.imagePrompt
           : dir.imagePrompt;
