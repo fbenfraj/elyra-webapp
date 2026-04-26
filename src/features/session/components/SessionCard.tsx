@@ -92,7 +92,9 @@ export function SessionCard({
       ? "aspect-[9/16]"
       : config?.aspectRatio === "2:3"
         ? "aspect-[2/3]"
-        : "aspect-square";
+        : config?.aspectRatio === "3:2"
+          ? "aspect-[3/2]"
+          : "aspect-square";
 
   return (
     <button

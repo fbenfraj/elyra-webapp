@@ -139,7 +139,7 @@ export async function generateDirections(
       .where(eq(sessions.id, sessionId));
 
     const assetConfig = getAssetTypeConfig(
-      (sessionRow?.assetType ?? "release_artwork") as AssetTypeId
+      (sessionRow?.assetType ?? "album_cover") as AssetTypeId
     );
 
     // Fetch reference images with URLs and metadata in a single DB call

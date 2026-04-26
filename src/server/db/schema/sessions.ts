@@ -22,7 +22,7 @@ export const sessions = pgTable(
     maxRegens: integer("max_regens").notNull().default(3),
     shareId: text("share_id"),
     spotifyArtistUrl: text("spotify_artist_url"),
-    assetType: text("asset_type").notNull().default("release_artwork"),
+    assetType: text("asset_type").notNull().default("album_cover"),
     userBrief: text("user_brief"),
     companionFromSessionId: text("companion_from_session_id"),
     createdAt: timestamp("created_at", { withTimezone: true })

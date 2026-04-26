@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useTRPC } from "@/lib/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ImagePlus, Check, Upload, Loader, X } from "lucide-react";
+import { ImageLightbox } from "@/features/generation/components/ImageLightbox";
 
 const MAX_SELECTIONS = 5;
 
@@ -21,6 +22,11 @@ export function ReferencePicker({
   const [expanded, setExpanded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lightboxRef, setLightboxRef] = useState<{
+    id: string;
+    imageUrl: string;
+    filename: string | null;
+  } | null>(null);
 
   const { data: references, isLoading } = useQuery(
     trpc.reference.list.queryOptions()
@@ -84,7 +90,6 @@ export function ReferencePicker({
             fileSize: file.size,
           });
 
-          // Auto-select newly uploaded reference
           if (currentIds.length < MAX_SELECTIONS) {
             currentIds = [...currentIds, id];
             onSelectionChange(currentIds);
@@ -100,11 +105,21 @@ export function ReferencePicker({
     [createUploadUrl, confirmUpload, selectedIds, onSelectionChange]
   );
 
-  // Selected thumbnails for collapsed preview
-  const selectedRefs = references?.filter((r) => selectedIds.includes(r.id)) ?? [];
+  const selectedRefs =
+    references?.filter((r) => selectedIds.includes(r.id)) ?? [];
 
   return (
     <div className="w-full">
+      <ImageLightbox
+        src={lightboxRef?.imageUrl ?? null}
+        alt={lightboxRef?.filename ?? "Reference image"}
+        isSelected={lightboxRef ? selectedIds.includes(lightboxRef.id) : false}
+        onToggleSelect={
+          lightboxRef ? () => toggleSelection(lightboxRef.id) : undefined
+        }
+        onClose={() => setLightboxRef(null)}
+      />
+
       {/* Toggle row */}
       <div className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--background-elevated)]/60 px-4 py-2.5 text-sm text-[var(--foreground-muted)] transition-colors hover:border-[#52525b] hover:text-[var(--foreground)]">
         <button
@@ -137,16 +152,24 @@ export function ReferencePicker({
       {!expanded && selectedRefs.length > 0 && (
         <div className="mt-2 flex gap-2">
           {selectedRefs.map((ref) => (
-            <div
+            <button
               key={ref.id}
-              className="size-20 overflow-hidden rounded-md border border-[var(--border)]"
+              type="button"
+              onClick={() =>
+                setLightboxRef({
+                  id: ref.id,
+                  imageUrl: ref.imageUrl,
+                  filename: ref.originalFilename,
+                })
+              }
+              className="size-[120px] overflow-hidden rounded-md border border-[var(--border)] transition-opacity hover:opacity-80"
             >
               <img
                 src={ref.imageUrl}
                 alt={ref.originalFilename ?? "Reference"}
                 className="h-full w-full object-cover"
               />
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -154,7 +177,6 @@ export function ReferencePicker({
       {/* Expanded picker */}
       {expanded && (
         <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background-elevated)]/60 p-4">
-          {/* Selection count */}
           <p className="mb-3 text-xs text-[var(--foreground-subtle)]">
             {selectedIds.length}/{MAX_SELECTIONS} selected
           </p>
@@ -200,45 +222,66 @@ export function ReferencePicker({
             </div>
           )}
 
-          {/* Horizontal scrollable grid */}
           {references && references.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-2">
               {references.map((ref) => {
                 const isSelected = selectedIds.includes(ref.id);
                 return (
-                  <button
-                    key={ref.id}
-                    type="button"
-                    onClick={() => toggleSelection(ref.id)}
-                    className={`relative flex-shrink-0 overflow-hidden rounded-lg transition-all ${
-                      isSelected
-                        ? "ring-2 ring-white ring-offset-2 ring-offset-[#09090b]"
-                        : "opacity-70 hover:opacity-100"
-                    }`}
-                  >
-                    <div className="size-20">
-                      <img
-                        src={ref.imageUrl}
-                        alt={ref.originalFilename ?? "Reference"}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    {isSelected && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                        <Check className="size-5 text-white" />
+                  <div key={ref.id} className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setLightboxRef({
+                          id: ref.id,
+                          imageUrl: ref.imageUrl,
+                          filename: ref.originalFilename,
+                        })
+                      }
+                      className={`overflow-hidden rounded-lg transition-all ${
+                        isSelected
+                          ? "ring-2 ring-white ring-offset-2 ring-offset-[#09090b]"
+                          : "opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <div className="size-[120px]">
+                        <img
+                          src={ref.imageUrl}
+                          alt={ref.originalFilename ?? "Reference"}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                    )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelection(ref.id);
+                      }}
+                      className={`absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full transition-colors ${
+                        isSelected
+                          ? "bg-white text-[#09090b]"
+                          : "bg-black/50 text-white/70 hover:bg-black/70 hover:text-white"
+                      }`}
+                    >
+                      {isSelected ? (
+                        <Check className="size-3.5" />
+                      ) : (
+                        <span className="size-3.5 rounded-full border-2 border-current" />
+                      )}
+                    </button>
+
                     {/* Source badge */}
                     <span className="absolute bottom-1 left-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[8px] font-medium text-white">
                       {ref.source.startsWith("spotify") ? "S" : "U"}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
 
               {/* Upload button */}
               <label
-                className={`flex size-20 flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[var(--border)] transition-colors hover:border-[var(--foreground-subtle)] ${
+                className={`flex size-[120px] flex-shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-[var(--border)] transition-colors hover:border-[var(--foreground-subtle)] ${
                   isUploading ? "opacity-50" : ""
                 }`}
               >
@@ -255,7 +298,9 @@ export function ReferencePicker({
                 ) : (
                   <>
                     <Upload className="size-4 text-[var(--foreground-subtle)]" />
-                    <span className="text-[9px] text-[var(--foreground-subtle)]">+ Upload</span>
+                    <span className="text-[9px] text-[var(--foreground-subtle)]">
+                      + Upload
+                    </span>
                   </>
                 )}
               </label>

@@ -16,7 +16,7 @@ export const generationInterpretBrief = task({
         payload.sessionId,
         payload.userId,
         payload.input.briefText,
-        payload.input.assetType ?? "release_artwork"
+        payload.input.assetType ?? "album_cover"
       );
 
       console.info(JSON.stringify({

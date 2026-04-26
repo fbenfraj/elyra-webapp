@@ -2,10 +2,14 @@ import { z } from "zod/v4";
 
 export const ASSET_TYPE_VALUES = [
   "release_artwork",
+  "album_cover",
+  "single_cover",
+  "ep_cover",
   "instagram_post",
   "instagram_story",
   "announcement",
   "artist_portrait",
+  "press_photo",
 ] as const;
 
 export const briefInputSchema = z.object({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ASSET_TYPES, ASSET_TYPE_IDS } from "@/config/asset-types";
+import { ASSET_TYPES, SELECTABLE_ASSET_TYPE_IDS } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
 
 type CompanionSuggestionsProps = {
@@ -15,7 +15,7 @@ export function CompanionSuggestions({
 }: CompanionSuggestionsProps) {
   const router = useRouter();
 
-  const companionTypes = ASSET_TYPE_IDS.filter((id) => id !== currentAssetType);
+  const companionTypes = SELECTABLE_ASSET_TYPE_IDS.filter((id) => id !== currentAssetType);
 
   const handleCompanionClick = (typeId: AssetTypeId) => {
     const params = new URLSearchParams();

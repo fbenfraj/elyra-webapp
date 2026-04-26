@@ -291,7 +291,7 @@ export const generationRouter = createTRPCRouter({
         .select({ assetType: sessions.assetType })
         .from(sessions)
         .where(eq(sessions.id, input.sessionId));
-      return runInterpretation(input.sessionId, ctx.user.id, result.refinedBrief, refinedSessionRow?.assetType ?? "release_artwork");
+      return runInterpretation(input.sessionId, ctx.user.id, result.refinedBrief, refinedSessionRow?.assetType ?? "album_cover");
     }),
 
   getAllDirections: authedProcedure
@@ -762,7 +762,7 @@ export const generationRouter = createTRPCRouter({
         .select({ assetType: sessions.assetType })
         .from(sessions)
         .where(eq(sessions.id, input.sessionId));
-      return runInterpretation(input.sessionId, ctx.user.id, input.newBriefText, editSession?.assetType ?? "release_artwork");
+      return runInterpretation(input.sessionId, ctx.user.id, input.newBriefText, editSession?.assetType ?? "album_cover");
     }),
 
   changeDirectionPostPayment: authedProcedure

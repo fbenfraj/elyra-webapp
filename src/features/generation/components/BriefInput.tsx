@@ -8,12 +8,13 @@ import {
   AnimatedDashboardContainer,
   AnimatedDashboardItem,
 } from "@/features/session/components/DashboardAnimations";
-import { ASSET_TYPES, ASSET_TYPE_IDS } from "@/config/asset-types";
 import type { AssetTypeId } from "@/config/asset-types";
+import { ASSET_TYPES } from "@/config/asset-types";
+import { FormatSelector } from "@/features/generation/components/FormatSelector";
 import { ReferencePicker } from "@/features/generation/components/ReferencePicker";
 
-const MIN_HEIGHT = 120;
-const MAX_HEIGHT = 200;
+const COMPACT_MAX_HEIGHT = 120;
+const FULL_MAX_HEIGHT = 200;
 
 export function BriefInput({
   onSubmit,
@@ -30,12 +31,13 @@ export function BriefInput({
 }) {
   const [text, setText] = useState(defaultText ?? "");
   const [selectedType, setSelectedType] = useState<AssetTypeId>(
-    defaultAssetType ?? "release_artwork"
+    defaultAssetType ?? "album_cover"
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
 
   const config = ASSET_TYPES[selectedType];
+  const maxHeight = hasMoodboard ? COMPACT_MAX_HEIGHT : FULL_MAX_HEIGHT;
 
   const handleSubmit = useCallback(() => {
     if (isSubmitting) return;
@@ -54,14 +56,14 @@ export function BriefInput({
     textarea.style.height = "auto";
     const scrollHeight = textarea.scrollHeight;
 
-    if (scrollHeight <= MAX_HEIGHT) {
-      textarea.style.height = `${Math.max(scrollHeight, MIN_HEIGHT)}px`;
+    if (scrollHeight <= maxHeight) {
+      textarea.style.height = `${scrollHeight}px`;
       textarea.style.overflowY = "hidden";
     } else {
-      textarea.style.height = `${MAX_HEIGHT}px`;
+      textarea.style.height = `${maxHeight}px`;
       textarea.style.overflowY = "auto";
     }
-  }, []);
+  }, [maxHeight]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -98,7 +100,6 @@ export function BriefInput({
           priority
           sizes="100vw"
         />
-        {/* Radial vignette */}
         <div
           className="absolute inset-0"
           style={{
@@ -106,7 +107,6 @@ export function BriefInput({
               "radial-gradient(ellipse at center, transparent 20%, #09090b 70%)",
           }}
         />
-        {/* Top/bottom vignette */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#09090b]/70 via-transparent to-[#09090b]/80" />
       </motion.div>
 
@@ -114,41 +114,27 @@ export function BriefInput({
       <AnimatedDashboardItem>
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-white">
-            Describe your vision
+            {hasMoodboard ? "What are you creating?" : "Describe your vision"}
           </h1>
           <p className="text-sm text-[var(--foreground-muted)]">
             {hasMoodboard
-              ? "What's this release about? Your visual identity handles the style"
+              ? "Pick a format and tell us what it's about"
               : "Tell us about the mood, genre, and aesthetic you're going for"}
           </p>
         </div>
       </AnimatedDashboardItem>
 
-      {/* Asset type chips */}
+      {/* Format selector */}
       <AnimatedDashboardItem>
-        <div className="flex flex-wrap justify-center gap-2 px-4">
-          {ASSET_TYPE_IDS.map((typeId) => {
-            const typeConfig = ASSET_TYPES[typeId];
-            const isSelected = typeId === selectedType;
-            return (
-              <button
-                key={typeId}
-                type="button"
-                onClick={() => setSelectedType(typeId)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-                  isSelected
-                    ? "border-white bg-white text-[#09090b]"
-                    : "border-[var(--border)] bg-[var(--background-elevated)]/60 text-[var(--foreground-muted)] hover:border-[#52525b] hover:text-[var(--foreground)]"
-                }`}
-              >
-                {typeConfig.label}
-              </button>
-            );
-          })}
+        <div className="px-4">
+          <FormatSelector
+            selected={selectedType}
+            onSelect={setSelectedType}
+          />
         </div>
       </AnimatedDashboardItem>
 
-      {/* Input area */}
+      {/* Context input area */}
       <AnimatedDashboardItem className="w-full">
         <div className="mx-auto w-full max-w-5xl px-4">
           <textarea
@@ -160,12 +146,15 @@ export function BriefInput({
             }}
             onKeyDown={handleKeyDown}
             disabled={isSubmitting}
-            placeholder={config.placeholder}
-            rows={5}
+            placeholder={
+              hasMoodboard
+                ? "What's this release about? (optional)"
+                : config.placeholder
+            }
+            rows={hasMoodboard ? 2 : 5}
             className="w-full resize-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--background-elevated)]/80 px-5 py-4 text-lg leading-relaxed text-[var(--foreground)] backdrop-blur-sm placeholder:text-[var(--foreground-subtle)] focus:border-[#52525b] focus:shadow-[0_0_0_3px_rgba(63,63,70,0.3)] focus:outline-none disabled:opacity-50"
             style={{
-              minHeight: `${MIN_HEIGHT}px`,
-              maxHeight: `${MAX_HEIGHT}px`,
+              maxHeight: `${maxHeight}px`,
               overflowY: "hidden",
             }}
           />

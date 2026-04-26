@@ -106,7 +106,7 @@ export async function generateImages(
     }
 
     const assetConfig = getAssetTypeConfig(
-      (session.assetType ?? "release_artwork") as AssetTypeId
+      (session.assetType ?? "album_cover") as AssetTypeId
     );
 
     if (
