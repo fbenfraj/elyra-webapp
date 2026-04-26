@@ -130,6 +130,9 @@ export const moodboardRouter = createTRPCRouter({
       if (!moodboard) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Moodboard not found." });
       }
+      if (moodboard.status === "complete") {
+        return { success: true };
+      }
       if (moodboard.status !== "refining") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Moodboard is not in refining state." });
       }

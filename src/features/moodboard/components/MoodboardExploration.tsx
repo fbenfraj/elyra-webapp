@@ -62,22 +62,18 @@ export function MoodboardExploration({
   const likedCount = localLikedIds.length;
   const isPending = likeMutation.isPending || unlikeMutation.isPending;
 
-  // After liking, auto-advance after a short delay (unless it's the last one)
   function handleLikeAndAdvance() {
     if (!currentDirection) return;
 
     if (isLiked) {
-      // Unlike — toggle off, don't advance
       unlikeMutation.mutate({ moodboardId, directionId: currentDirection.id });
     } else {
-      // Like — toggle on
       likeMutation.mutate(
         { moodboardId, directionId: currentDirection.id },
         {
           onSuccess: () => {
-            if (!isLastDirection) {
-              advanceTimerRef.current = setTimeout(() => setCurrentIndex((i) => i + 1), 400);
-            }
+            if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+            advanceTimerRef.current = setTimeout(() => setCurrentIndex((i) => i + 1), 400);
           },
         }
       );

@@ -71,6 +71,23 @@ export function MoodboardFlow() {
         <p className="text-sm text-zinc-400">Synthesizing your visual identity...</p>
       </div>
     );
+  } else if ((startRefinement.isSuccess || status === "refining") && refinementSpec) {
+    content = (
+      <MoodboardRefinement
+        moodboardId={moodboard!.id}
+        initialSpec={refinementSpec}
+        onComplete={() => {
+          setRefinementSpec(null);
+          startRefinement.reset();
+          queryClient.invalidateQueries({
+            queryKey: trpc.moodboard.getById.queryKey({ id: moodboard!.id }),
+          });
+          queryClient.invalidateQueries({
+            queryKey: trpc.moodboard.active.queryKey(),
+          });
+        }}
+      />
+    );
   } else if (status === "generating" || status === "failed") {
     content = (
       <MoodboardIntro
@@ -92,21 +109,6 @@ export function MoodboardFlow() {
         likedDirectionIds={moodboard.likedDirectionIds}
         onStartRefinement={() => {
           startRefinement.mutate({ moodboardId: moodboard.id });
-        }}
-      />
-    );
-  } else if ((status === "refining" || startRefinement.isSuccess) && refinementSpec) {
-    content = (
-      <MoodboardRefinement
-        moodboardId={moodboard!.id}
-        initialSpec={refinementSpec}
-        onComplete={() => {
-          queryClient.invalidateQueries({
-            queryKey: trpc.moodboard.getById.queryKey({ id: moodboard!.id }),
-          });
-          queryClient.invalidateQueries({
-            queryKey: trpc.moodboard.active.queryKey(),
-          });
         }}
       />
     );
