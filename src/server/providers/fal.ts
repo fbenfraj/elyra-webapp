@@ -84,7 +84,7 @@ async function generateWithReferences(
   const result = await fal.subscribe(FAL_KONTEXT_MULTI_MODEL, {
     input: {
       prompt,
-      image_urls: options.referenceImages ?? [],
+      image_urls: (options.referenceImages ?? []).slice(0, 4),
       num_images: 1,
       output_format: "jpeg",
       guidance_scale: options.guidanceScale ?? 3.5,

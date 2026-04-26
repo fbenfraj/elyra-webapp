@@ -88,15 +88,26 @@ export async function generateMoodboardDirections(
           const referencePrefix = getKontextReferencePrefix(referenceImageUrls.length);
           const fullPrompt = `${referencePrefix}\n\n${dir.imagePrompt}`;
 
-          const result = await fal.subscribe(FAL_KONTEXT_MULTI_MODEL, {
-            input: {
-              prompt: fullPrompt,
-              image_urls: referenceImageUrls,
-              num_images: 1,
-              output_format: "png",
-              guidance_scale: AUTO_REFERENCE_GUIDANCE_SCALE,
-            },
-          });
+          let result;
+          try {
+            result = await fal.subscribe(FAL_KONTEXT_MULTI_MODEL, {
+              input: {
+                prompt: fullPrompt,
+                image_urls: referenceImageUrls,
+                num_images: 1,
+                output_format: "jpeg",
+                guidance_scale: AUTO_REFERENCE_GUIDANCE_SCALE,
+              },
+            });
+          } catch (error) {
+            console.error(JSON.stringify({
+              event: "moodboard_kontext_multi_error",
+              moodboardId,
+              directionIndex: index,
+              detail: error instanceof Error ? { message: error.message, body: (error as Record<string, unknown>).body } : String(error),
+            }));
+            throw error;
+          }
 
           const image = (result.data as { images?: Array<{ url: string }> }).images?.[0];
           if (!image) throw new Error(`Kontext Multi returned no images for direction ${index}`);
@@ -206,7 +217,7 @@ async function collectReferenceImageUrls(userId: string): Promise<string[]> {
     .select({ r2Key: userReferences.r2Key })
     .from(userReferences)
     .where(eq(userReferences.userId, userId))
-    .limit(5);
+    .limit(4);
 
   if (refs.length === 0) return [];
 

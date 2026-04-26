@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTRPC } from "@/lib/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MOODBOARD_POLL_INTERVAL_MS } from "@/config/moodboard-client";
@@ -14,7 +13,6 @@ import { Loader2 } from "lucide-react";
 
 export function MoodboardFlow() {
   const trpc = useTRPC();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [moodboardId, setMoodboardId] = useState<string | null>(null);
   const [refinementSpec, setRefinementSpec] = useState<MoodboardSpec | null>(null);
@@ -117,16 +115,8 @@ export function MoodboardFlow() {
   }
 
   return (
-    <div className="relative w-full">
-      <button
-        onClick={() => router.push("/dashboard")}
-        className="absolute right-0 top-0 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
-      >
-        Skip for now
-      </button>
-      <div className="flex flex-col items-center pt-8">
-        {content}
-      </div>
+    <div className="flex w-full flex-col items-center">
+      {content}
     </div>
   );
 }
