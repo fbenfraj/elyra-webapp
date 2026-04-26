@@ -8,6 +8,7 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import { Sparkles, Palette, Download, Plus, Music2, Disc3, ArrowRight } from "lucide-react";
 import { MoodboardDashboardPrompt } from "@/features/moodboard/components/MoodboardDashboardPrompt";
+import { MoodboardIdentityHero } from "@/features/moodboard/components/MoodboardIdentityHero";
 import { Button } from "@/components/ui/button";
 import { SessionCard } from "@/features/session/components/SessionCard";
 import {
@@ -429,6 +430,17 @@ export function SessionList() {
         if (!userSettings) return null;
         if (!userSettings.artistId) return <SpotifySetupPrompt />;
         if (!activeMoodboard) return <MoodboardDashboardPrompt />;
+        if (activeMoodboard.spec) {
+          return (
+            <MoodboardIdentityHero
+              artistName={userSettings.artistName!}
+              artistImageUrl={userSettings.artistImageUrl}
+              artistGenres={userSettings.artistGenres}
+              sessionCount={sessions.length}
+              spec={activeMoodboard.spec}
+            />
+          );
+        }
         return (
           <ArtistHero
             artistName={userSettings.artistName!}

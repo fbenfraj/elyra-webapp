@@ -5,7 +5,6 @@ import { Palette, RefreshCw } from "lucide-react";
 import { useTRPC } from "@/lib/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { MoodboardSpecSummary } from "@/features/moodboard/components/MoodboardSpecSummary";
 
 export function MoodboardIdentitySettings() {
   const trpc = useTRPC();
@@ -86,9 +85,15 @@ export function MoodboardIdentitySettings() {
           <h2 className="text-base font-semibold text-zinc-100">
             Visual Identity
           </h2>
-          <p className="mt-1 text-sm text-zinc-400">
-            Your moodboard shapes the style of every generation
-          </p>
+          {spec ? (
+            <p className="mt-1 text-sm text-zinc-400">
+              {spec.coreIdea}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-zinc-400">
+              Your moodboard shapes the style of every generation
+            </p>
+          )}
         </div>
         <Button
           variant="ghost-secondary"
@@ -100,24 +105,25 @@ export function MoodboardIdentitySettings() {
         </Button>
       </div>
 
-      {spec && <MoodboardSpecSummary spec={spec} />}
-
-      {moodboard.anchors.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-            Style anchors
-          </p>
-          <div className="flex gap-2">
-            {moodboard.anchors.map((anchor) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={anchor.imageKey}
-                src={anchor.imageUrl}
-                alt="Anchor"
-                width={80}
-                height={80}
-                className="size-20 rounded-lg object-cover"
+      {spec && (
+        <div className="flex items-center gap-4">
+          <div className="flex gap-1.5">
+            {spec.palette.map((hex, i) => (
+              <div
+                key={i}
+                className="size-7 rounded-lg border border-zinc-700/50"
+                style={{ backgroundColor: hex }}
               />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {spec.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] text-zinc-500"
+              >
+                {tag}
+              </span>
             ))}
           </div>
         </div>
