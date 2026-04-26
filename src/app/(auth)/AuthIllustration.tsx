@@ -61,7 +61,7 @@ export function AuthIllustration({ src }: { src: string }) {
               fill
               className="object-cover opacity-40"
               priority
-              sizes="100vw"
+              sizes="(max-width: 1024px) 100vw, 0px"
             />
             <div className="absolute inset-0 bg-[#09090b]/40" />
           </motion.div>,

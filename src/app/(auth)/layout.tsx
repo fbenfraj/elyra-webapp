@@ -29,6 +29,7 @@ export default function AuthLayout({
               width={160}
               height={160}
               className="rounded-sm"
+              priority
             />
             <span className="text-base font-semibold uppercase tracking-[0.12em] text-foreground">
               elyra
