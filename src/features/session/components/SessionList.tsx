@@ -317,6 +317,9 @@ export function SessionList() {
   }
 
   if (!sessions || sessions.length === 0) {
+    const needsSpotify = userSettings && !userSettings.artistId;
+    const needsMoodboard = userSettings?.artistId && !activeMoodboard;
+
     return (
       <AnimatedDashboardContainer className="relative flex flex-1 flex-col items-center justify-center gap-8 overflow-hidden">
         {/* Background image with atmospheric effects */}
@@ -378,8 +381,8 @@ export function SessionList() {
           </div>
         </AnimatedDashboardItem>
 
-        {/* Spotify prompt for empty state */}
-        {userSettings && !userSettings.artistId && (
+        {/* Setup prompts — Spotify first, then moodboard as hero */}
+        {needsSpotify && (
           <AnimatedDashboardItem>
             <button
               onClick={() => router.push("/settings")}
@@ -400,24 +403,31 @@ export function SessionList() {
           </AnimatedDashboardItem>
         )}
 
-        {/* Moodboard prompt for empty state */}
-        {userSettings?.artistId && !activeMoodboard && (
-          <AnimatedDashboardItem>
-            <MoodboardDashboardPrompt compact />
-          </AnimatedDashboardItem>
+        {needsMoodboard && (
+          <MoodboardDashboardPrompt />
         )}
 
-        {/* CTA */}
+        {/* CTA — deprioritized when moodboard is missing */}
         <AnimatedDashboardItem>
-          <motion.button
-            onClick={() => router.push("/generate")}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 rounded-full bg-white px-8 py-3 text-base font-semibold text-[#09090b] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
-          >
-            <Plus className="size-5" />
-            Start your first release
-          </motion.button>
+          {needsMoodboard ? (
+            <button
+              onClick={() => router.push("/generate")}
+              className="flex items-center gap-2 text-sm text-[var(--foreground-subtle)] transition-colors hover:text-[var(--foreground-muted)]"
+            >
+              <Plus className="size-4" />
+              Skip and start generating
+            </button>
+          ) : (
+            <motion.button
+              onClick={() => router.push("/generate")}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2 rounded-full bg-white px-8 py-3 text-base font-semibold text-[#09090b] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
+            >
+              <Plus className="size-5" />
+              Start your first release
+            </motion.button>
+          )}
         </AnimatedDashboardItem>
       </AnimatedDashboardContainer>
     );
