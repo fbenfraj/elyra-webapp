@@ -10,6 +10,7 @@ import { operatorRouter } from "@/server/routers/operator";
 import { libraryRouter } from "@/server/routers/library";
 import { userRouter } from "@/server/routers/user";
 import { referenceRouter } from "@/server/routers/reference";
+import { moodboardRouter } from "@/server/routers/moodboard";
 
 export const appRouter = createTRPCRouter({
   session: sessionRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   library: libraryRouter,
   user: userRouter,
   reference: referenceRouter,
+  moodboard: moodboardRouter,
 });
 
 export type AppRouter = typeof appRouter;
