@@ -12,6 +12,7 @@ import { userRouter } from "@/server/routers/user";
 import { referenceRouter } from "@/server/routers/reference";
 import { moodboardRouter } from "@/server/routers/moodboard";
 import { messageRouter } from "@/server/routers/message";
+import { paletteRouter } from "@/server/routers/palette";
 
 export const appRouter = createTRPCRouter({
   session: sessionRouter,
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   reference: referenceRouter,
   moodboard: moodboardRouter,
   message: messageRouter,
+  palette: paletteRouter,
 });
 
 export type AppRouter = typeof appRouter;
