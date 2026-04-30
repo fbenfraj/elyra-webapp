@@ -8,6 +8,7 @@ import { userReferences } from "@/server/db/schema/user-references";
 import { eq } from "drizzle-orm";
 import { getUserSettings } from "@/server/services/user";
 import { getCachedArtist } from "@/server/services/spotify-sync";
+import { getActiveMessage } from "@/server/services/message";
 import { getSignedImageUrl, uploadImageFromUrl } from "@/server/services/storage";
 import { updateMoodboardDirections, failMoodboard } from "@/server/services/moodboard";
 import { directionLLMOutputSchema } from "@/lib/schemas/moodboard";
@@ -48,7 +49,8 @@ export async function generateMoodboardDirections(
     }
 
     // Step 2: Build LLM prompt with artist context
-    const artistPrompt = buildArtistPrompt(artist);
+    const activeMessage = await getActiveMessage(userId);
+    const artistPrompt = buildArtistPrompt(artist, activeMessage?.output ?? null);
 
     // Step 3: Generate 6 direction specs via LLM
     const { object: llmOutput, usage } = await generateObject({
@@ -170,20 +172,30 @@ export async function generateMoodboardDirections(
   }
 }
 
-function buildArtistPrompt(artist: {
-  name: string;
-  genres: string[] | null;
-  audioProfile: {
-    energy: number;
-    valence: number;
-    danceability: number;
-    acousticness: number;
-    instrumentalness: number;
-    tempo: number;
-    loudness: number;
-  } | null;
-  albums: Array<{ name: string; releaseDate: string; albumType: string }>;
-}): string {
+function buildArtistPrompt(
+  artist: {
+    name: string;
+    genres: string[] | null;
+    audioProfile: {
+      energy: number;
+      valence: number;
+      danceability: number;
+      acousticness: number;
+      instrumentalness: number;
+      tempo: number;
+      loudness: number;
+    } | null;
+    albums: Array<{ name: string; releaseDate: string; albumType: string }>;
+  },
+  message?: {
+    title: string;
+    narrative: string;
+    inspiration: string;
+    visualDirection: string;
+    authenticity: string;
+    aesthetic: string;
+  } | null
+): string {
   const parts: string[] = [];
 
   parts.push(`Artist: ${artist.name}`);
@@ -207,6 +219,17 @@ function buildArtistPrompt(artist: {
   if (artist.albums.length > 0) {
     const recentAlbums = artist.albums.slice(0, 10);
     parts.push(`Recent releases: ${recentAlbums.map((a) => `${a.name} (${a.releaseDate})`).join(", ")}`);
+  }
+
+  if (message) {
+    parts.push("");
+    parts.push("ARTIST MESSAGE");
+    parts.push(`Title: ${message.title}`);
+    parts.push(`Core narrative: ${message.narrative}`);
+    parts.push(`Inspiration: ${message.inspiration}`);
+    parts.push(`Visual direction: ${message.visualDirection}`);
+    parts.push(`Values & authenticity: ${message.authenticity}`);
+    parts.push(`Aesthetic: ${message.aesthetic}`);
   }
 
   return parts.join("\n");

@@ -5,6 +5,8 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { R2_SIGNED_URL_EXPIRY_SECONDS } from "@/config/providers";
@@ -79,6 +81,35 @@ export async function deleteR2Object(key: string): Promise<void> {
       Key: key,
     })
   );
+}
+
+export async function deleteR2Prefix(prefix: string): Promise<void> {
+  let continuationToken: string | undefined;
+
+  do {
+    const list = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+
+    const keys = list.Contents?.map((o) => o.Key).filter(
+      (k): k is string => typeof k === "string"
+    );
+
+    if (keys && keys.length > 0) {
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: BUCKET,
+          Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+        })
+      );
+    }
+
+    continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+  } while (continuationToken);
 }
 
 export async function createPresignedUploadUrl(

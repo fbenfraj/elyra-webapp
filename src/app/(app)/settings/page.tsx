@@ -1,5 +1,6 @@
 import { SpotifyArtistSettings } from "@/features/settings/components/SpotifyArtistSettings";
 import { MoodboardIdentitySettings } from "@/features/settings/components/MoodboardIdentitySettings";
+import { DangerZoneSettings } from "@/features/settings/components/DangerZoneSettings";
 
 export default function SettingsPage() {
   return (
@@ -8,6 +9,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <SpotifyArtistSettings />
         <MoodboardIdentitySettings />
+        <DangerZoneSettings />
       </div>
     </div>
   );

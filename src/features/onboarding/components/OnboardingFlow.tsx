@@ -58,7 +58,11 @@ export function OnboardingFlow() {
           }),
         ]);
         toast.success("Welcome to Elyra!");
-        router.push("/dashboard");
+        if (syncedArtist) {
+          router.push("/onboarding/message");
+        } else {
+          router.push("/dashboard");
+        }
       },
     })
   );

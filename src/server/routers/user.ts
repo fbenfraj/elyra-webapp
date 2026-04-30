@@ -12,6 +12,7 @@ import {
 } from "@/server/services/user";
 import { searchArtists } from "@/server/providers/spotify";
 import { syncArtist, syncArtistAndPopulateReferences } from "@/server/services/spotify-sync";
+import { deleteAccount } from "@/server/services/account-deletion";
 
 export const userRouter = createTRPCRouter({
   settings: authedProcedure.query(async ({ ctx }) => {
@@ -87,4 +88,9 @@ export const userRouter = createTRPCRouter({
       await completeOnboarding(ctx.user.id);
       return { ok: true };
     }),
+
+  deleteAccount: authedProcedure.mutation(async ({ ctx }) => {
+    await deleteAccount(ctx.user.id);
+    return { ok: true };
+  }),
 });

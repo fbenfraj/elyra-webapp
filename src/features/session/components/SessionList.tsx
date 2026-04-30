@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { Plus, Music2, Disc3, ArrowRight } from "lucide-react";
+import { MessageDashboardPrompt } from "@/features/message/components/MessageDashboardPrompt";
 import { MoodboardDashboardPrompt } from "@/features/moodboard/components/MoodboardDashboardPrompt";
 import { MoodboardIdentityHero } from "@/features/moodboard/components/MoodboardIdentityHero";
 import { Button } from "@/components/ui/button";
@@ -293,6 +294,10 @@ export function SessionList() {
     trpc.moodboard.active.queryOptions()
   );
 
+  const { data: activeMessage } = useQuery(
+    trpc.message.active.queryOptions()
+  );
+
   const deleteSession = useMutation(
     trpc.session.delete.mutationOptions({
       onSuccess: () => {
@@ -344,7 +349,8 @@ export function SessionList() {
               artistGenres={userSettings.artistGenres}
               sessionCount={sessionList.length}
             />
-            {!activeMoodboard && <MoodboardDashboardPrompt />}
+            {!activeMessage && <MessageDashboardPrompt />}
+            {activeMessage && !activeMoodboard && <MoodboardDashboardPrompt />}
           </>
         );
       })()}
