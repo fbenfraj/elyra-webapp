@@ -49,9 +49,14 @@ export function OnboardingFlow() {
   const completeOnboarding = useMutation(
     trpc.user.completeOnboarding.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: trpc.user.onboardingStatus.queryKey(),
-        });
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: trpc.user.onboardingStatus.queryKey(),
+          }),
+          queryClient.invalidateQueries({
+            queryKey: trpc.user.settings.queryKey(),
+          }),
+        ]);
         toast.success("Welcome to Elyra!");
         router.push("/dashboard");
       },

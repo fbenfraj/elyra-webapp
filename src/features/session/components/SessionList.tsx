@@ -6,7 +6,7 @@ import { useTRPC } from "@/lib/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { Sparkles, Palette, Download, Plus, Music2, Disc3, ArrowRight } from "lucide-react";
+import { Plus, Music2, Disc3, ArrowRight } from "lucide-react";
 import { MoodboardDashboardPrompt } from "@/features/moodboard/components/MoodboardDashboardPrompt";
 import { MoodboardIdentityHero } from "@/features/moodboard/components/MoodboardIdentityHero";
 import { Button } from "@/components/ui/button";
@@ -316,148 +316,36 @@ export function SessionList() {
     return <SessionListSkeleton />;
   }
 
-  if (!sessions || sessions.length === 0) {
-    const needsSpotify = userSettings && !userSettings.artistId;
-    const needsMoodboard = userSettings?.artistId && !activeMoodboard;
-
-    return (
-      <AnimatedDashboardContainer className="relative flex flex-1 flex-col items-center justify-center gap-8 overflow-hidden">
-        {/* Background image with atmospheric effects */}
-        <motion.div
-          className="pointer-events-none absolute inset-0 -z-10"
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: [1, 1.05, 1] }}
-          transition={{
-            opacity: { duration: 1.2, ease: "easeOut" },
-            scale: { duration: 25, repeat: Infinity, ease: "easeInOut", delay: 1.2 },
-          }}
-        >
-          <Image
-            src="/assets/dashboard-bg.png"
-            alt=""
-            fill
-            className="object-cover opacity-50"
-            priority
-            sizes="100vw"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse at center, transparent 30%, #09090b 75%)",
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#09090b]/60 via-transparent to-[#09090b]/80" />
-        </motion.div>
-
-        {/* Headline */}
-        <AnimatedDashboardItem>
-          <h2 className="text-center text-3xl font-semibold tracking-tight text-white">
-            Your creative journey starts here
-          </h2>
-        </AnimatedDashboardItem>
-
-        {/* Value propositions */}
-        <AnimatedDashboardItem>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <Sparkles className="size-4 shrink-0 text-[var(--foreground-muted)]" />
-              <span className="text-sm text-[var(--foreground)]">
-                Describe your vision in plain language
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Palette className="size-4 shrink-0 text-[var(--foreground-muted)]" />
-              <span className="text-sm text-[var(--foreground)]">
-                Get multiple creative directions to choose from
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Download className="size-4 shrink-0 text-[var(--foreground-muted)]" />
-              <span className="text-sm text-[var(--foreground)]">
-                Download ready-to-use release packages
-              </span>
-            </div>
-          </div>
-        </AnimatedDashboardItem>
-
-        {/* Setup prompts — Spotify first, then moodboard as hero */}
-        {needsSpotify && (
-          <AnimatedDashboardItem>
-            <button
-              onClick={() => router.push("/settings")}
-              className="flex items-center gap-4 rounded-xl border border-dashed border-[#3f3f46] bg-white/[0.02] px-6 py-4 text-left transition-colors hover:border-[#1ed760]/40 hover:bg-[#1ed760]/[0.03]"
-            >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#1ed760]/10">
-                <Disc3 className="size-5 text-[#1ed760]" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  Connect your Spotify artist profile
-                </p>
-                <p className="text-xs text-[var(--foreground-subtle)]">
-                  Get personalized style references from your music
-                </p>
-              </div>
-            </button>
-          </AnimatedDashboardItem>
-        )}
-
-        {needsMoodboard && (
-          <MoodboardDashboardPrompt />
-        )}
-
-        {/* CTA — deprioritized when moodboard is missing */}
-        <AnimatedDashboardItem>
-          {needsMoodboard ? (
-            <button
-              onClick={() => router.push("/generate")}
-              className="flex items-center gap-2 text-sm text-[var(--foreground-subtle)] transition-colors hover:text-[var(--foreground-muted)]"
-            >
-              <Plus className="size-4" />
-              Skip and start generating
-            </button>
-          ) : (
-            <motion.button
-              onClick={() => router.push("/generate")}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="flex items-center gap-2 rounded-full bg-white px-8 py-3 text-base font-semibold text-[#09090b] shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(255,255,255,0.25)]"
-            >
-              <Plus className="size-5" />
-              Start your first release
-            </motion.button>
-          )}
-        </AnimatedDashboardItem>
-      </AnimatedDashboardContainer>
-    );
-  }
+  const sessionList = sessions ?? [];
+  const hasSessions = sessionList.length > 0;
 
   return (
     <AnimatedDashboardContainer>
-      {/* Artist hero section — or setup prompt if no artist linked */}
+      {/* Artist hero — always present once Spotify is connected */}
       {(() => {
         if (!userSettings) return null;
         if (!userSettings.artistId) return <SpotifySetupPrompt />;
-        if (!activeMoodboard) return <MoodboardDashboardPrompt />;
-        if (activeMoodboard.spec) {
+        if (activeMoodboard?.spec) {
           return (
             <MoodboardIdentityHero
               artistName={userSettings.artistName!}
               artistImageUrl={userSettings.artistImageUrl}
               artistGenres={userSettings.artistGenres}
-              sessionCount={sessions.length}
+              sessionCount={sessionList.length}
               spec={activeMoodboard.spec}
             />
           );
         }
         return (
-          <ArtistHero
-            artistName={userSettings.artistName!}
-            artistImageUrl={userSettings.artistImageUrl}
-            artistGenres={userSettings.artistGenres}
-            sessionCount={sessions.length}
-          />
+          <>
+            <ArtistHero
+              artistName={userSettings.artistName!}
+              artistImageUrl={userSettings.artistImageUrl}
+              artistGenres={userSettings.artistGenres}
+              sessionCount={sessionList.length}
+            />
+            {!activeMoodboard && <MoodboardDashboardPrompt />}
+          </>
         );
       })()}
 
@@ -473,14 +361,14 @@ export function SessionList() {
                 <Button
                   variant="ghost-secondary"
                   onClick={() => {
-                    if (sessions && selected.size < sessions.length) {
-                      setSelected(new Set(sessions.map((s) => s.id)));
+                    if (selected.size < sessionList.length) {
+                      setSelected(new Set(sessionList.map((s) => s.id)));
                     } else {
                       setSelected(new Set());
                     }
                   }}
                 >
-                  {sessions && selected.size === sessions.length ? "Deselect all" : "Select all"}
+                  {selected.size === sessionList.length ? "Deselect all" : "Select all"}
                 </Button>
                 <Button
                   variant="ghost-secondary"
@@ -506,12 +394,14 @@ export function SessionList() {
               </>
             ) : (
               <>
-                <Button
-                  variant="ghost-secondary"
-                  onClick={() => setSelectMode(true)}
-                >
-                  Select
-                </Button>
+                {hasSessions && (
+                  <Button
+                    variant="ghost-secondary"
+                    onClick={() => setSelectMode(true)}
+                  >
+                    Select
+                  </Button>
+                )}
                 <motion.button
                   onClick={() => router.push("/generate")}
                   whileHover={{ scale: 1.03 }}
@@ -527,29 +417,33 @@ export function SessionList() {
         </div>
       </AnimatedDashboardItem>
 
-      {/* Session grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {sessions.map((session, index) => (
-          <AnimatedCardItem key={session.id} index={index}>
-            <SessionCard
-              id={session.id}
-              briefText={session.briefText}
-              status={session.status}
-              createdAt={new Date(session.createdAt)}
-              assetType={session.assetType ?? undefined}
-              previewImageUrl={session.previewImageUrl}
-              selectMode={selectMode}
-              isSelected={selected.has(session.id)}
-              onToggleSelect={() => toggleSelect(session.id)}
-            />
-          </AnimatedCardItem>
-        ))}
-      </div>
+      {hasSessions ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {sessionList.map((session, index) => (
+            <AnimatedCardItem key={session.id} index={index}>
+              <SessionCard
+                id={session.id}
+                briefText={session.briefText}
+                status={session.status}
+                createdAt={new Date(session.createdAt)}
+                assetType={session.assetType ?? undefined}
+                previewImageUrl={session.previewImageUrl}
+                selectMode={selectMode}
+                isSelected={selected.has(session.id)}
+                onToggleSelect={() => toggleSelect(session.id)}
+              />
+            </AnimatedCardItem>
+          ))}
+        </div>
+      ) : (
+        <AnimatedDashboardItem>
+          <div className="rounded-xl border border-dashed border-[var(--border)] px-6 py-10 text-center text-sm text-[var(--foreground-subtle)]">
+            No releases yet — create your first.
+          </div>
+        </AnimatedDashboardItem>
+      )}
 
-      {/* Generated work strip */}
       <GeneratedWorkStrip />
-
-      {/* References strip */}
       <ReferencesStrip />
     </AnimatedDashboardContainer>
   );
