@@ -89,7 +89,7 @@ export function MoodboardDashboardPrompt() {
           </div>
 
           <motion.button
-            onClick={() => router.push("/onboarding/moodboard")}
+            onClick={() => router.push("/dashboard/moodboard")}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             className="flex shrink-0 items-center gap-2 rounded-full bg-violet-500 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(139,92,246,0.2)] transition-shadow duration-300 hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]"

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { Music2, RefreshCw } from "lucide-react";
+import { Music2, ArrowRight } from "lucide-react";
 import { AnimatedDashboardItem } from "@/features/session/components/DashboardAnimations";
 import type { MoodboardSpec } from "@/lib/schemas/moodboard";
 
@@ -104,13 +104,13 @@ export function MoodboardIdentityHero({
             </div>
 
             <motion.button
-              onClick={() => router.push("/onboarding/moodboard")}
+              onClick={() => router.push("/dashboard/moodboard")}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center gap-1.5 rounded-full bg-white/8 px-3.5 py-1.5 text-xs font-medium text-[var(--foreground-muted)] backdrop-blur-sm transition-colors hover:bg-white/12 hover:text-[var(--foreground)]"
             >
-              <RefreshCw className="size-3" />
-              Redo
+              Go to moodboard
+              <ArrowRight className="size-3" />
             </motion.button>
           </div>
 
