@@ -51,7 +51,7 @@ export async function createShareLinkForSession(
 
   // Return existing share link if already created
   if (session.shareId) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3847";
     return {
       shareUrl: `${baseUrl}/direction/${session.shareId}`,
       shareId: session.shareId,
@@ -66,7 +66,7 @@ export async function createShareLinkForSession(
     .set({ shareId, updatedAt: sql`now()` })
     .where(eq(sessions.id, sessionId));
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3847";
   return {
     shareUrl: `${baseUrl}/direction/${shareId}`,
     shareId,
