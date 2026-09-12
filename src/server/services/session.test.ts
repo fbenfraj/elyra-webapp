@@ -40,7 +40,7 @@ vi.mock("@/server/db/schema/sessions", () => ({
 describe("session service", () => {
   it("createSession inserts and returns session id", async () => {
     const { createSession } = await import("./session");
-    const result = await createSession("user-123", "dark cinematic trap");
+    const result = await createSession("user-123", "dark cinematic trap", "album_cover", null);
     expect(result).toEqual({ id: "test-session-id" });
   });
 
@@ -48,7 +48,8 @@ describe("session service", () => {
     it("returns INVALID_STATUS when editing from a disallowed status", async () => {
       // Override the db mock so select returns a session with status "interpreting"
       const dbModule = await import("@/server/db");
-      const mockDb = dbModule.db as ReturnType<typeof vi.fn> & Record<string, ReturnType<typeof vi.fn>>;
+      const mockDb = dbModule.db as unknown as ReturnType<typeof vi.fn> &
+        Record<string, ReturnType<typeof vi.fn>>;
 
       const whereMock = vi.fn().mockResolvedValue([
         {
@@ -75,7 +76,8 @@ describe("session service", () => {
 
     it("succeeds when editing from 'selecting' status", async () => {
       const dbModule = await import("@/server/db");
-      const mockDb = dbModule.db as ReturnType<typeof vi.fn> & Record<string, ReturnType<typeof vi.fn>>;
+      const mockDb = dbModule.db as unknown as ReturnType<typeof vi.fn> &
+        Record<string, ReturnType<typeof vi.fn>>;
 
       const selectWhereMock = vi.fn().mockResolvedValue([
         {
@@ -105,7 +107,8 @@ describe("session service", () => {
   describe("changeDirectionPostPayment", () => {
     it("returns INVALID_STATUS when changing direction from a pre-payment status", async () => {
       const dbModule = await import("@/server/db");
-      const mockDb = dbModule.db as ReturnType<typeof vi.fn> & Record<string, ReturnType<typeof vi.fn>>;
+      const mockDb = dbModule.db as unknown as ReturnType<typeof vi.fn> &
+        Record<string, ReturnType<typeof vi.fn>>;
 
       const whereMock = vi.fn().mockResolvedValue([
         {
@@ -129,7 +132,8 @@ describe("session service", () => {
 
     it("succeeds when changing direction from 'paid' status", async () => {
       const dbModule = await import("@/server/db");
-      const mockDb = dbModule.db as ReturnType<typeof vi.fn> & Record<string, ReturnType<typeof vi.fn>>;
+      const mockDb = dbModule.db as unknown as ReturnType<typeof vi.fn> &
+        Record<string, ReturnType<typeof vi.fn>>;
 
       const selectWhereMock = vi.fn().mockResolvedValue([
         {

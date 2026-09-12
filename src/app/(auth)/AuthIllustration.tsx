@@ -13,10 +13,17 @@ export function AuthIllustration({ src }: { src: string }) {
     null,
   );
 
+  // The two portal targets are rendered by the auth layout, not by this
+  // component, so there is no ref to attach and nothing to derive: they only
+  // exist once the DOM is there. Reading them during render would make the
+  // render impure and break hydration, which is why this one effect keeps
+  // setting state.
+  /* eslint-disable react-hooks/set-state-in-effect -- portal targets are only reachable after mount */
   useEffect(() => {
     setDesktopContainer(document.getElementById("auth-illustration-desktop"));
     setMobileContainer(document.getElementById("auth-illustration-mobile"));
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <>

@@ -23,12 +23,21 @@ export function EditableBrief({
   const [draft, setDraft] = useState(briefText);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sync draft when briefText changes externally
-  useEffect(() => {
-    if (!isEditMode) {
-      setDraft(briefText);
-    }
-  }, [briefText, isEditMode]);
+  // Adjusting state during render, rather than from an effect: the draft follows
+  // an external brief change while the field is closed, and the edit mode closes
+  // when the mutation that was running reports it has finished. Both run before
+  // the browser paints, so neither costs the extra render an effect would.
+  const [lastBriefText, setLastBriefText] = useState(briefText);
+  if (briefText !== lastBriefText) {
+    setLastBriefText(briefText);
+    if (!isEditMode) setDraft(briefText);
+  }
+
+  const [wasEditing, setWasEditing] = useState(isEditing);
+  if (isEditing !== wasEditing) {
+    setWasEditing(isEditing);
+    if (!isEditing && isEditMode) setIsEditMode(false);
+  }
 
   // Focus textarea when entering edit mode
   useEffect(() => {
@@ -37,13 +46,6 @@ export function EditableBrief({
       textareaRef.current.selectionStart = textareaRef.current.value.length;
     }
   }, [isEditMode]);
-
-  // Exit edit mode when mutation succeeds
-  useEffect(() => {
-    if (!isEditing && isEditMode) {
-      setIsEditMode(false);
-    }
-  }, [isEditing, isEditMode]);
 
   const handleSubmit = () => {
     const trimmed = draft.trim();

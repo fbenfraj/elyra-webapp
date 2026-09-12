@@ -95,7 +95,7 @@ describe("Direction Pipeline E2E", () => {
   // -------------------------------------------------------------------------
 
   it("runs interpretation and stores visual spec in DB", async () => {
-    const session = await createSession(testUserId, "dark trap nighttime city vibes");
+    const session = await createSession(testUserId, "dark trap nighttime city vibes", "album_cover", null);
 
     // Mock moderation to pass
     mockModerateBrief.mockResolvedValue({ flagged: false, categories: [] });
@@ -115,6 +115,8 @@ describe("Direction Pipeline E2E", () => {
       session.id,
       testUserId,
       "dark trap nighttime city vibes"
+    ,
+      "album_cover"
     );
 
     expect(result.ok).toBe(true);
@@ -150,7 +152,7 @@ describe("Direction Pipeline E2E", () => {
   });
 
   it("returns follow-up questions when confidence is below threshold", async () => {
-    const session = await createSession(testUserId, "vibes");
+    const session = await createSession(testUserId, "vibes", "album_cover", null);
 
     mockModerateBrief.mockResolvedValue({ flagged: false, categories: [] });
 
@@ -158,13 +160,13 @@ describe("Direction Pipeline E2E", () => {
       response: {
         confidence: 0.4,
         followUpQuestions: ["More gritty or more polished?", "Any artist that captures this feeling?"],
-        spec: undefined,
+        spec: null,
       },
       costCents: 1,
       durationMs: 300,
     });
 
-    const result = await runInterpretation(session.id, testUserId, "vibes");
+    const result = await runInterpretation(session.id, testUserId, "vibes", "album_cover");
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -186,7 +188,7 @@ describe("Direction Pipeline E2E", () => {
   });
 
   it("blocks flagged briefs and does NOT advance session status", async () => {
-    const session = await createSession(testUserId, "violent offensive content");
+    const session = await createSession(testUserId, "violent offensive content", "album_cover", null);
 
     mockModerateBrief.mockResolvedValue({
       flagged: true,
@@ -197,6 +199,8 @@ describe("Direction Pipeline E2E", () => {
       session.id,
       testUserId,
       "violent offensive content"
+    ,
+      "album_cover"
     );
 
     expect(result.ok).toBe(false);
@@ -212,7 +216,7 @@ describe("Direction Pipeline E2E", () => {
   });
 
   it("stores direction data in generation_jobs with correct foreign keys", async () => {
-    const session = await createSession(testUserId, "lo-fi hip hop beats");
+    const session = await createSession(testUserId, "lo-fi hip hop beats", "album_cover", null);
 
     // Advance to generating_directions
     await testDb
@@ -296,7 +300,7 @@ describe("Direction Pipeline E2E", () => {
   });
 
   it("fails gracefully and sets session to failed when direction generation throws", async () => {
-    const session = await createSession(testUserId, "dark ambient drone");
+    const session = await createSession(testUserId, "dark ambient drone", "album_cover", null);
     await testDb
       .update(sessions)
       .set({ status: "generating_directions" })

@@ -53,6 +53,8 @@ describe("interpretation service", () => {
       "session-1",
       "user-1",
       "dark cinematic trap"
+    ,
+      "album_cover"
     );
 
     expect(result.ok).toBe(true);
@@ -86,6 +88,8 @@ describe("interpretation service", () => {
       "session-1",
       "user-1",
       "make it cool"
+    ,
+      "album_cover"
     );
 
     expect(result.ok).toBe(true);
@@ -115,6 +119,8 @@ describe("interpretation service", () => {
       "session-1",
       "user-1",
       "violent content"
+    ,
+      "album_cover"
     );
 
     expect(result.ok).toBe(false);
@@ -133,7 +139,7 @@ describe("interpretation service", () => {
     mockStoreVisualSpec.mockResolvedValue({ id: "vs-456" });
 
     const { runInterpretation } = await import("./interpretation");
-    await runInterpretation("session-1", "user-1", "moody ambient");
+    await runInterpretation("session-1", "user-1", "moody ambient", "album_cover");
 
     // First call should be 'interpreting', second should be 'generating_directions'
     expect(mockUpdateSessionStatus).toHaveBeenNthCalledWith(
@@ -154,7 +160,7 @@ describe("interpretation service", () => {
     mockUpdateSessionStatus.mockResolvedValue(undefined);
 
     const { runInterpretation } = await import("./interpretation");
-    const result = await runInterpretation("session-1", "user-1", "brief text");
+    const result = await runInterpretation("session-1", "user-1", "brief text", "album_cover");
 
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe("INTERPRETATION_FAILED");

@@ -28,6 +28,19 @@ vi.mock("@/lib/trpc/client", () => ({
       },
     },
   }),
+  // The component also reaches for the plain client to record selection
+  // analytics. The mock only exported `useTRPC`, so `trpcClient` was undefined
+  // and the first click threw before the selection could update. It went
+  // unnoticed because that branch only runs when something was already
+  // selected, which never happened while the default selection was written
+  // from an effect.
+  trpcClient: {
+    feedback: {
+      captureEvent: {
+        mutate: vi.fn().mockResolvedValue(undefined),
+      },
+    },
+  },
 }));
 
 // Mock tanstack react-query

@@ -63,7 +63,7 @@ describe("Session Lifecycle E2E", () => {
   });
 
   it("creates a session with correct initial state", async () => {
-    const session = await createSession(testUserId, "dark trap nighttime city vibes");
+    const session = await createSession(testUserId, "dark trap nighttime city vibes", "album_cover", null);
 
     expect(session.id).toBeDefined();
 
@@ -85,7 +85,7 @@ describe("Session Lifecycle E2E", () => {
   });
 
   it("updates session status", async () => {
-    const session = await createSession(testUserId, "ambient electronic sunrise");
+    const session = await createSession(testUserId, "ambient electronic sunrise", "album_cover", null);
 
     await updateSessionStatus(session.id, "interpreting");
 
@@ -98,7 +98,7 @@ describe("Session Lifecycle E2E", () => {
   });
 
   it("simulates full session lifecycle through status transitions", async () => {
-    const session = await createSession(testUserId, "lo-fi hip hop study beats");
+    const session = await createSession(testUserId, "lo-fi hip hop study beats", "album_cover", null);
 
     // pending -> interpreting
     await updateSessionStatus(session.id, "interpreting");
@@ -157,7 +157,7 @@ describe("Full Pipeline Lifecycle E2E", () => {
   });
 
   it("transitions through the full happy-path pipeline", async () => {
-    const session = await createSession(testUserId, "full pipeline test");
+    const session = await createSession(testUserId, "full pipeline test", "album_cover", null);
 
     // pending → interpreting
     await updateSessionStatus(session.id, "interpreting");
@@ -243,7 +243,7 @@ describe("Full Pipeline Lifecycle E2E", () => {
   });
 
   it("verifies no orphaned records exist after full lifecycle", async () => {
-    const session = await createSession(testUserId, "orphan check test");
+    const session = await createSession(testUserId, "orphan check test", "album_cover", null);
     const sessionId = session.id;
 
     // Build supporting records
@@ -283,7 +283,7 @@ describe("Full Pipeline Lifecycle E2E", () => {
   });
 
   it("rejects invalid state transitions", async () => {
-    const session = await createSession(testUserId, "invalid transition test");
+    const session = await createSession(testUserId, "invalid transition test", "album_cover", null);
 
     // pending → complete should be rejected
     await expect(
@@ -310,7 +310,7 @@ describe("Full Pipeline Lifecycle E2E", () => {
 
   it("allows any status to transition to failed", async () => {
     const { failSession } = await import("@/server/services/session");
-    const session = await createSession(testUserId, "fail test");
+    const session = await createSession(testUserId, "fail test", "album_cover", null);
 
     await failSession(session.id, "interpreting");
 
@@ -343,7 +343,7 @@ describe("Payment Flow E2E", () => {
 
   it("handles webhook event and updates session to paid", async () => {
     // Create a session and advance it to direction_selected (required for payment)
-    const session = await createSession(testUserId, "synthwave retro future");
+    const session = await createSession(testUserId, "synthwave retro future", "album_cover", null);
     await updateSessionStatus(session.id, "direction_selected");
 
     const fakeStripeSessionId = `cs_test_${crypto.randomUUID()}`;
@@ -387,7 +387,7 @@ describe("Payment Flow E2E", () => {
   });
 
   it("checkPackBoundary returns correct state for paid session", async () => {
-    const session = await createSession(testUserId, "jazz fusion");
+    const session = await createSession(testUserId, "jazz fusion", "album_cover", null);
     await updateSessionStatus(session.id, "direction_selected");
 
     const fakeEvent = {
@@ -413,7 +413,7 @@ describe("Payment Flow E2E", () => {
   });
 
   it("incrementRegenCount exhausts regenerations", async () => {
-    const session = await createSession(testUserId, "punk rock energy");
+    const session = await createSession(testUserId, "punk rock energy", "album_cover", null);
     await updateSessionStatus(session.id, "direction_selected");
 
     const fakeEvent = {
@@ -463,7 +463,7 @@ describe("Payment and Pack Boundary E2E", () => {
   });
 
   it("idempotent webhook redelivery produces no duplicate payment records", async () => {
-    const session = await createSession(testUserId, "idempotency test brief");
+    const session = await createSession(testUserId, "idempotency test brief", "album_cover", null);
     await advanceToDirectionSelected(session.id, testUserId);
 
     const fakeStripeSessionId = `cs_test_${crypto.randomUUID()}`;
@@ -498,7 +498,7 @@ describe("Payment and Pack Boundary E2E", () => {
   });
 
   it("enforces regeneration limit and blocks when PACK_REGEN_LIMIT is reached", async () => {
-    const session = await createSession(testUserId, "regen limit test brief");
+    const session = await createSession(testUserId, "regen limit test brief", "album_cover", null);
     await advanceToDirectionSelected(session.id, testUserId);
 
     const fakeEvent = {
@@ -534,7 +534,7 @@ describe("Payment and Pack Boundary E2E", () => {
   });
 
   it("payment record has correct amount, currency, and status after webhook", async () => {
-    const session = await createSession(testUserId, "payment fields test");
+    const session = await createSession(testUserId, "payment fields test", "album_cover", null);
     await advanceToDirectionSelected(session.id, testUserId);
 
     const fakeStripeSessionId = `cs_test_${crypto.randomUUID()}`;
@@ -642,7 +642,7 @@ describe("Schema Validation E2E", () => {
   });
 
   it("inserts and reads back a session with all columns and correct mappings", async () => {
-    const session = await createSession(testUserId, "test brief for schema validation");
+    const session = await createSession(testUserId, "test brief for schema validation", "album_cover", null);
 
     const [dbSession] = await testDb
       .select()

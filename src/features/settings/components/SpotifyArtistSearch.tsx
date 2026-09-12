@@ -15,7 +15,10 @@ export function SpotifyArtistSearch({ onSelect }: SpotifyArtistSearchProps) {
   const trpc = useTRPC();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  // `open` is derived: a query of two characters or more opens the dropdown.
+  // The one thing that is not derivable is a click outside, which closes a
+  // dropdown whose query has not changed, so that dismissal is what we store.
+  const [dismissedQuery, setDismissedQuery] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,18 +29,16 @@ export function SpotifyArtistSearch({ onSelect }: SpotifyArtistSearchProps) {
   }, [query]);
 
   useEffect(() => {
-    setOpen(debouncedQuery.length >= 2);
-  }, [debouncedQuery]);
-
-  useEffect(() => {
     function handleMouseDown(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        setDismissedQuery(debouncedQuery);
       }
     }
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
-  }, []);
+  }, [debouncedQuery]);
+
+  const open = debouncedQuery.length >= 2 && dismissedQuery !== debouncedQuery;
 
   const { data: results, isFetching } = useQuery({
     ...trpc.user.searchArtists.queryOptions({ query: debouncedQuery }),
@@ -49,7 +50,6 @@ export function SpotifyArtistSearch({ onSelect }: SpotifyArtistSearchProps) {
     onSelect(artist);
     setQuery("");
     setDebouncedQuery("");
-    setOpen(false);
   }
 
   return (
@@ -61,7 +61,7 @@ export function SpotifyArtistSearch({ onSelect }: SpotifyArtistSearchProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => {
-            if (debouncedQuery.length >= 2) setOpen(true);
+            setDismissedQuery(null);
           }}
           placeholder="Search for an artist…"
           className="w-full rounded-lg border border-zinc-700/50 bg-zinc-900 py-2 pl-9 pr-9 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600"

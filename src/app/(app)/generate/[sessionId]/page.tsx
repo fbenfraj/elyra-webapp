@@ -1542,7 +1542,11 @@ function SelectionPhase({
   onPackagingStarted: () => void;
 }) {
   const trpc = useTRPC();
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  // Tracks that a regeneration was asked for. Whether one is still RUNNING is
+  // the server's answer, not ours, so it is derived below rather than cleared
+  // from an effect: the old version set state inside the poll handler, which
+  // cost a second render on every completion.
+  const [regenRequested, setRegenRequested] = useState(false);
 
   const { data: curatedData, refetch: refetchImages } = useQuery(
     trpc.generation.getCuratedImages.queryOptions({ sessionId })
@@ -1557,19 +1561,23 @@ function SelectionPhase({
     trpc.generation.getImageGenerationStatus.queryOptions(
       { sessionId },
       {
-        refetchInterval: isRegenerating ? 2500 : false,
+        // Polling stops on the polled value itself, so no local flag has to be
+        // cleared to end it.
+        refetchInterval: (query) =>
+          regenRequested && query.state.data?.status !== "selecting" ? 2500 : false,
       }
     )
   );
 
-  // When regeneration completes (status returns to selecting), refresh images
+  const isRegenerating = regenRequested && statusData?.status !== "selecting";
+
+  // When regeneration completes (status returns to selecting), refresh images.
   useEffect(() => {
-    if (isRegenerating && statusData?.status === "selecting") {
-      setIsRegenerating(false);
+    if (regenRequested && statusData?.status === "selecting") {
       refetchImages();
       refetchPackStatus();
     }
-  }, [isRegenerating, statusData?.status, refetchImages, refetchPackStatus]);
+  }, [regenRequested, statusData?.status, refetchImages, refetchPackStatus]);
 
   const regenerateMutation = useMutation(
     trpc.generation.regenerate.mutationOptions({
@@ -1579,10 +1587,10 @@ function SelectionPhase({
           action: "regeneration_requested",
           payload: { regenCount },
         });
-        setIsRegenerating(true);
+        setRegenRequested(true);
       },
       onError: () => {
-        setIsRegenerating(false);
+        setRegenRequested(false);
       },
     })
   );

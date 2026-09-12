@@ -40,8 +40,13 @@ export function ImageSelection({
 }: ImageSelectionProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  // Both of these used to be plain state written from an effect, which cost a
+  // second render pass every time the server answered. They are derived now:
+  // `selectedId` falls back to the highest-scoring image (the ranked list is
+  // ordered), and `likedIds` shows the optimistic override only while a like is
+  // in flight, the server's answer the rest of the time.
+  const [selectionOverride, setSelectedId] = useState<string | null>(null);
+  const [likeOverride, setLikedIds] = useState<Set<string> | null>(null);
   const [animatingId, setAnimatingId] = useState<string | null>(null);
   const selectionRowRef = useRef<HTMLDivElement>(null);
   const focusIndexRef = useRef(0);
@@ -51,12 +56,8 @@ export function ImageSelection({
     trpc.feedback.getLikes.queryOptions({ sessionId })
   );
 
-  // Sync server likes into local state
-  useEffect(() => {
-    if (likesQuery.data) {
-      setLikedIds(new Set(likesQuery.data));
-    }
-  }, [likesQuery.data]);
+  const selectedId = selectionOverride ?? images[0]?.id ?? null;
+  const likedIds = likeOverride ?? new Set(likesQuery.data ?? []);
 
   // Like mutation with optimistic update
   const likeMutation = useMutation(
@@ -82,10 +83,11 @@ export function ImageSelection({
           setLikedIds(context.previousLikedIds);
         }
       },
-      onSettled: () => {
-        queryClient.invalidateQueries({
+      onSettled: async () => {
+        await queryClient.invalidateQueries({
           queryKey: trpc.feedback.getLikes.queryKey({ sessionId }),
         });
+        setLikedIds(null);
       },
     })
   );
@@ -98,15 +100,6 @@ export function ImageSelection({
     [sessionId, likeMutation]
   );
 
-  // Pre-select highest-scoring image (first in ranked list) and persist to DB
-  useEffect(() => {
-    if (images.length > 0 && selectedId === null) {
-      const firstId = images[0]!.id;
-      setSelectedId(firstId);
-      selectImageMutation.mutate({ sessionId, attemptId: firstId });
-    }
-  }, [images, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps -- only fire on initial load
-
   const selectImageMutation = useMutation(
     trpc.generation.selectImage.mutationOptions({
       onSuccess: () => {
@@ -114,6 +107,17 @@ export function ImageSelection({
       },
     })
   );
+
+  // The default selection is already visible through `selectedId` above; this
+  // only tells the server about it. It sits below the mutation because reading
+  // `selectImageMutation` above its own declaration is a temporal dead zone.
+  const defaultPersisted = useRef(false);
+  useEffect(() => {
+    if (selectionOverride === null && images.length > 0 && !defaultPersisted.current) {
+      defaultPersisted.current = true;
+      selectImageMutation.mutate({ sessionId, attemptId: images[0]!.id });
+    }
+  }, [images, sessionId, selectionOverride, selectImageMutation]);
 
   const handleSelect = useCallback(
     (attemptId: string) => {

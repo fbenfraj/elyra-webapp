@@ -106,7 +106,7 @@ export async function generateMoodboardDirections(
               event: "moodboard_kontext_multi_error",
               moodboardId,
               directionIndex: index,
-              detail: error instanceof Error ? { message: error.message, body: (error as Record<string, unknown>).body } : String(error),
+              detail: error instanceof Error ? { message: error.message, body: (error as Error & { body?: unknown }).body } : String(error),
             }));
             throw error;
           }

@@ -114,6 +114,7 @@ export const MOCK_VISUAL_SPEC: VisualSpec = {
   style: "Photographic with high contrast, desaturated cool tones",
   culturalReferences: ["Travis Scott Astroworld", "Arca experimental"],
   genreContext: "dark trap",
+  continuityCues: null,
 };
 
 /**
