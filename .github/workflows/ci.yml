@@ -31,5 +31,18 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # `next build` imports every route module to collect page data, and two of
+      # them read configuration at module scope: the database handle throws when
+      # DATABASE_URL is missing, and the Stripe client refuses to construct
+      # without a key. Nothing here connects to anything, because no route runs a
+      # query at build time, so these are placeholders and deliberately not
+      # secrets. A real value would only widen what a fork's build can reach.
       - name: Build
         run: pnpm build
+        env:
+          DATABASE_URL: postgresql://build:build@localhost:5432/build
+          STRIPE_SECRET_KEY: sk_test_build_placeholder
+          NEXT_PUBLIC_SUPABASE_URL: https://build.placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: build-placeholder
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
